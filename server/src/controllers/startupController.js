@@ -179,14 +179,13 @@ exports.approveStartup = async (req, res) => {
     const founderName = startup.founder?.fullName || 'Founder';
     const companyName = startup.companyName;
     const startupId = startup._id;
-    const notes = req.body.notes || '';
+    const notes = req.body?.notes || '';
 
     const now = new Date();
     const expiresAt = addYears(now, 2);
     const maxUntil = addYears(now, 8);
     const certificateNumber = makeCertificateNumber(startupId);
 
-    // Keep verified for old frontend compatibility, also set designated fields
     startup.status = 'verified';
     startup.verifiedAt = now;
     startup.designatedAt = now;
@@ -198,7 +197,6 @@ exports.approveStartup = async (req, res) => {
     startup.adminNotes = notes;
     await startup.save();
 
-    // Create certificate record
     await DesignationCertificate.findOneAndUpdate(
       { startup: startupId },
       {
@@ -216,7 +214,6 @@ exports.approveStartup = async (req, res) => {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    // Audit log
     await CaseDecision.create({
       entityType: 'startup',
       entityId: startupId,
@@ -268,7 +265,7 @@ exports.approveStartup = async (req, res) => {
     });
   } catch (error) {
     console.error('Approve startup error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
   }
 };
 
@@ -287,8 +284,8 @@ exports.rejectStartup = async (req, res) => {
     const founderEmail = startup.founder?.email;
     const founderName = startup.founder?.fullName || 'Founder';
     const companyName = startup.companyName;
-    const reason = req.body.reason || 'Did not meet designation criteria';
-    const notes = req.body.notes || '';
+    const reason = req.body?.reason || 'Did not meet designation criteria';
+    const notes = req.body?.notes || '';
 
     startup.status = 'rejected';
     startup.rejectionReason = reason;
@@ -342,7 +339,7 @@ exports.rejectStartup = async (req, res) => {
     });
   } catch (error) {
     console.error('Reject startup error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
   }
 };
 
@@ -354,12 +351,16 @@ exports.deleteStartup = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Startup not found' });
     }
 
+    const reason = req.body?.reason || 'Deleted by admin';
+    const notes = req.body?.notes || '';
+
+    // Write audit first (safe even if body is empty)
     await CaseDecision.create({
       entityType: 'startup',
       entityId: startup._id,
       action: 'delete',
-      reason: req.body.reason || 'Deleted by admin',
-      notes: req.body.notes || '',
+      reason,
+      notes,
       actor: req.user._id,
     });
 
@@ -372,7 +373,7 @@ exports.deleteStartup = async (req, res) => {
     });
   } catch (error) {
     console.error('Delete startup error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
   }
 };
 
@@ -382,7 +383,9 @@ exports.getAdminStats = async (req, res) => {
     const [total, verified, pending, rejected] = await Promise.all([
       Startup.countDocuments(),
       Startup.countDocuments({ status: { $in: PUBLIC_STATUSES } }),
-      Startup.countDocuments({ status: { $in: ['pending', 'submitted', 'under_review'] } }),
+      Startup.countDocuments({
+        status: { $in: ['pending', 'submitted', 'under_review'] },
+      }),
       Startup.countDocuments({ status: 'rejected' }),
     ]);
 

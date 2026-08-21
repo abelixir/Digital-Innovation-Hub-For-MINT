@@ -54,8 +54,8 @@ const designationCertificateSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Only one extra index needed (unique already indexes certificateNumber)
 designationCertificateSchema.index({ startup: 1 });
-designationCertificateSchema.index({ certificateNumber: 1 });
 
 module.exports = mongoose.model(
   'DesignationCertificate',
