@@ -7,6 +7,8 @@ const startupSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
+
+    // ====================== BASIC PROFILE ======================
     companyName: {
       type: String,
       required: [true, 'Company name is required'],
@@ -23,7 +25,15 @@ const startupSchema = new mongoose.Schema(
     },
     sector: {
       type: String,
-      enum: ['FinTech', 'AgriTech', 'EdTech', 'HealthTech', 'LogisticsTech', 'CleanTech', 'Other'],
+      enum: [
+        'FinTech',
+        'AgriTech',
+        'EdTech',
+        'HealthTech',
+        'LogisticsTech',
+        'CleanTech',
+        'Other',
+      ],
       required: true,
     },
     fundingStage: {
@@ -53,17 +63,80 @@ const startupSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Solution statement is required'],
     },
+
+    // ====================== DESIGNATION ELIGIBILITY ======================
+    founderOwnershipPercent: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: null,
+    },
+    isPublicCompany: {
+      type: Boolean,
+      default: false,
+    },
+    dateEstablished: {
+      type: Date,
+      default: null,
+    },
+    hasBusinessLicense: {
+      type: Boolean,
+      default: false,
+    },
+    innovationDescription: {
+      type: String,
+      default: '',
+    },
+    productOwnershipDeclaration: {
+      type: Boolean,
+      default: false,
+    },
+    legalStructure: {
+      type: String,
+      enum: ['sole_proprietor', 'private_limited', 'partnership', 'other', ''],
+      default: '',
+    },
+
+    // ====================== STATUS ======================
+    // Keep old values for compatibility + add advanced values
     status: {
       type: String,
-      enum: ['pending', 'verified', 'rejected'],
+      enum: [
+        'draft',
+        'pending',
+        'submitted',
+        'under_review',
+        'verified',
+        'designated',
+        'rejected',
+        'renewal_due',
+        'suspended',
+        'revoked',
+        'expired',
+      ],
       default: 'pending',
     },
-    verifiedAt: {
-      type: Date,
+
+    // ====================== TIMELINE ======================
+    submittedAt: { type: Date, default: null },
+    reviewDueAt: { type: Date, default: null },
+    verifiedAt: { type: Date, default: null },
+    designatedAt: { type: Date, default: null },
+    designationExpiresAt: { type: Date, default: null },
+    designationMaxUntil: { type: Date, default: null },
+
+    // ====================== DECISION DETAILS ======================
+    certificateNumber: { type: String, default: null },
+    rejectionReason: { type: String, default: '' },
+    suspensionReason: { type: String, default: '' },
+    revocationReason: { type: String, default: '' },
+    adminNotes: { type: String, default: '' },
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
     },
-    rejectionReason: {
-      type: String,
-    },
+
     requestCount: {
       type: Number,
       default: 0,
@@ -71,5 +144,9 @@ const startupSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+startupSchema.index({ status: 1, createdAt: -1 });
+startupSchema.index({ sector: 1, status: 1 });
+startupSchema.index({ founder: 1 });
 
 module.exports = mongoose.model('Startup', startupSchema);

@@ -23,13 +23,32 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['founder', 'investor', 'admin','citizen'],
+      enum: ['founder', 'investor', 'admin', 'citizen', 'ecosystem_builder'],
       default: 'founder',
     },
     companyName: String,
     organization: {
       type: String,
       trim: true,
+    },
+    organizationName: {
+      type: String,
+      trim: true,
+    },
+    builderType: {
+      type: String,
+      enum: [
+        'incubator',
+        'accelerator',
+        'coworking',
+        'angel_network',
+        'university',
+        'research',
+        'ngo',
+        'other',
+        '',
+      ],
+      default: '',
     },
     investmentRange: {
       type: String,
@@ -43,13 +62,11 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Hash password before saving
 userSchema.pre('save', async function () {
   if (!this.isModified('password')) return;
   this.password = await bcrypt.hash(this.password, 12);
 });
 
-// Compare password
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };

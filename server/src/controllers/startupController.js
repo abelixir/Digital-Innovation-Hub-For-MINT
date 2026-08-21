@@ -1,5 +1,21 @@
 const Startup = require('../models/Startup');
+const CaseDecision = require('../models/CaseDecision');
+const DesignationCertificate = require('../models/DesignationCertificate');
 const sendEmail = require('../utils/sendEmail');
+
+const PUBLIC_STATUSES = ['verified', 'designated'];
+
+function addYears(date, years) {
+  const d = new Date(date);
+  d.setFullYear(d.getFullYear() + years);
+  return d;
+}
+
+function makeCertificateNumber(startupId) {
+  const year = new Date().getFullYear();
+  const short = String(startupId).slice(-6).toUpperCase();
+  return `MINT-DES-${year}-${short}`;
+}
 
 // ====================== CREATE STARTUP (Founder) ======================
 exports.createStartup = async (req, res) => {
@@ -12,15 +28,30 @@ exports.createStartup = async (req, res) => {
       });
     }
 
+    const now = new Date();
+    const reviewDueAt = new Date(now);
+    reviewDueAt.setDate(reviewDueAt.getDate() + 30);
+
     const startup = await Startup.create({
       ...req.body,
       founder: req.user._id,
       status: 'pending',
+      submittedAt: now,
+      reviewDueAt,
+    });
+
+    await CaseDecision.create({
+      entityType: 'startup',
+      entityId: startup._id,
+      action: 'submit',
+      reason: 'Startup application submitted',
+      notes: '',
+      actor: req.user._id,
     });
 
     res.status(201).json({
       success: true,
-      message: 'Startup submitted successfully. Waiting for MinT verification.',
+      message: 'Startup submitted successfully. Waiting for MinT designation review.',
       data: startup,
     });
   } catch (error) {
@@ -69,12 +100,12 @@ exports.updateMyStartup = async (req, res) => {
   }
 };
 
-// ====================== GET ALL VERIFIED STARTUPS (Public Directory) ======================
+// ====================== GET ALL VERIFIED/DESIGNATED STARTUPS ======================
 exports.getVerifiedStartups = async (req, res) => {
   try {
-    const startups = await Startup.find({ status: 'verified' })
-      .sort({ verifiedAt: -1 })
-      .select('-rejectionReason');
+    const startups = await Startup.find({ status: { $in: PUBLIC_STATUSES } })
+      .sort({ designatedAt: -1, verifiedAt: -1 })
+      .select('-rejectionReason -suspensionReason -revocationReason -adminNotes');
 
     res.status(200).json({
       success: true,
@@ -95,12 +126,12 @@ exports.getStartup = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Startup not found' });
     }
 
-    if (
-      startup.status !== 'verified' &&
-      (!req.user ||
-        (req.user.role !== 'admin' &&
-          startup.founder.toString() !== req.user._id.toString()))
-    ) {
+    const isPublic = PUBLIC_STATUSES.includes(startup.status);
+    const isOwner =
+      req.user && startup.founder.toString() === req.user._id.toString();
+    const isAdmin = req.user && req.user.role === 'admin';
+
+    if (!isPublic && !isOwner && !isAdmin) {
       return res.status(403).json({
         success: false,
         message: 'This startup is not public yet',
@@ -116,7 +147,9 @@ exports.getStartup = async (req, res) => {
 // ====================== ADMIN: GET PENDING STARTUPS ======================
 exports.getPendingStartups = async (req, res) => {
   try {
-    const startups = await Startup.find({ status: 'pending' })
+    const startups = await Startup.find({
+      status: { $in: ['pending', 'submitted', 'under_review'] },
+    })
       .populate('founder', 'fullName email')
       .sort({ createdAt: -1 });
 
@@ -130,7 +163,7 @@ exports.getPendingStartups = async (req, res) => {
   }
 };
 
-// ====================== ADMIN: APPROVE STARTUP ======================
+// ====================== ADMIN: APPROVE / DESIGNATE STARTUP ======================
 exports.approveStartup = async (req, res) => {
   try {
     const startup = await Startup.findById(req.params.id).populate(
@@ -146,24 +179,71 @@ exports.approveStartup = async (req, res) => {
     const founderName = startup.founder?.fullName || 'Founder';
     const companyName = startup.companyName;
     const startupId = startup._id;
+    const notes = req.body.notes || '';
 
+    const now = new Date();
+    const expiresAt = addYears(now, 2);
+    const maxUntil = addYears(now, 8);
+    const certificateNumber = makeCertificateNumber(startupId);
+
+    // Keep verified for old frontend compatibility, also set designated fields
     startup.status = 'verified';
-    startup.verifiedAt = new Date();
-    startup.rejectionReason = undefined;
+    startup.verifiedAt = now;
+    startup.designatedAt = now;
+    startup.designationExpiresAt = expiresAt;
+    startup.designationMaxUntil = maxUntil;
+    startup.certificateNumber = certificateNumber;
+    startup.rejectionReason = '';
+    startup.reviewedBy = req.user._id;
+    startup.adminNotes = notes;
     await startup.save();
+
+    // Create certificate record
+    await DesignationCertificate.findOneAndUpdate(
+      { startup: startupId },
+      {
+        startup: startupId,
+        certificateNumber,
+        startupName: companyName,
+        founderNames: founderName,
+        growthStage: startup.fundingStage || '',
+        sector: startup.sector || '',
+        issuedAt: now,
+        expiresAt,
+        issuedBy: req.user._id,
+        status: 'active',
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    // Audit log
+    await CaseDecision.create({
+      entityType: 'startup',
+      entityId: startupId,
+      action: 'approve',
+      reason: 'Startup designated/verified by MinT admin',
+      notes,
+      actor: req.user._id,
+      meta: {
+        certificateNumber,
+        designationExpiresAt: expiresAt,
+      },
+    });
 
     if (founderEmail) {
       await sendEmail({
         to: founderEmail,
-        subject: `MinT Verified – ${companyName}`,
+        subject: `MinT Designation Approved – ${companyName}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #0d9488;">Your Startup is MinT Verified</h2>
+            <h2 style="color: #0d9488;">Your Startup is Designated by MinT</h2>
             <p>Hello ${founderName},</p>
             <p>
               Congratulations! <strong>${companyName}</strong> has been reviewed and
-              <strong>verified</strong> by the Ministry of Innovation and Technology.
+              <strong>designated</strong> by the Ministry of Innovation and Technology.
             </p>
+            <p><strong>Certificate No:</strong> ${certificateNumber}</p>
+            <p><strong>Valid until:</strong> ${expiresAt.toDateString()}</p>
             <p>Your startup is now visible in the public directory and open to investor interest.</p>
             <p>
               <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/directory/${startupId}"
@@ -183,7 +263,7 @@ exports.approveStartup = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Startup approved and verified',
+      message: 'Startup approved and designated',
       data: startup,
     });
   } catch (error) {
@@ -207,23 +287,35 @@ exports.rejectStartup = async (req, res) => {
     const founderEmail = startup.founder?.email;
     const founderName = startup.founder?.fullName || 'Founder';
     const companyName = startup.companyName;
-    const reason = req.body.reason || 'Did not meet verification criteria';
+    const reason = req.body.reason || 'Did not meet designation criteria';
+    const notes = req.body.notes || '';
 
     startup.status = 'rejected';
     startup.rejectionReason = reason;
+    startup.reviewedBy = req.user._id;
+    startup.adminNotes = notes;
     await startup.save();
+
+    await CaseDecision.create({
+      entityType: 'startup',
+      entityId: startup._id,
+      action: 'reject',
+      reason,
+      notes,
+      actor: req.user._id,
+    });
 
     if (founderEmail) {
       await sendEmail({
         to: founderEmail,
-        subject: `Verification Update – ${companyName}`,
+        subject: `Designation Update – ${companyName}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #64748b;">Startup Verification Update</h2>
+            <h2 style="color: #64748b;">Startup Designation Update</h2>
             <p>Hello ${founderName},</p>
             <p>
               After review, <strong>${companyName}</strong> was not approved for
-              MinT verification at this time.
+              MinT designation at this time.
             </p>
             <p><strong>Reason:</strong> ${reason}</p>
             <p>You can update your profile and resubmit for review.</p>
@@ -262,6 +354,16 @@ exports.deleteStartup = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Startup not found' });
     }
 
+    await CaseDecision.create({
+      entityType: 'startup',
+      entityId: startup._id,
+      action: 'delete',
+      reason: req.body.reason || 'Deleted by admin',
+      notes: req.body.notes || '',
+      actor: req.user._id,
+    });
+
+    await DesignationCertificate.deleteMany({ startup: startup._id });
     await startup.deleteOne();
 
     res.status(200).json({
@@ -279,8 +381,8 @@ exports.getAdminStats = async (req, res) => {
   try {
     const [total, verified, pending, rejected] = await Promise.all([
       Startup.countDocuments(),
-      Startup.countDocuments({ status: 'verified' }),
-      Startup.countDocuments({ status: 'pending' }),
+      Startup.countDocuments({ status: { $in: PUBLIC_STATUSES } }),
+      Startup.countDocuments({ status: { $in: ['pending', 'submitted', 'under_review'] } }),
       Startup.countDocuments({ status: 'rejected' }),
     ]);
 
@@ -339,7 +441,7 @@ exports.getPublicStats = async (req, res) => {
     const User = require('../models/User');
 
     const [verified, totalInvestors, totalStartups] = await Promise.all([
-      Startup.countDocuments({ status: 'verified' }),
+      Startup.countDocuments({ status: { $in: PUBLIC_STATUSES } }),
       User.countDocuments({ role: 'investor' }),
       Startup.countDocuments(),
     ]);
