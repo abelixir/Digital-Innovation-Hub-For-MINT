@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { apiRequest } from "../../utils/api";
+import { useToast } from "../../context/ToastContext";
+import AppShell from "../../components/AppShell";
+import Modal from "../../components/ui/Modal";
 import {
   Loader2,
-  ArrowLeft,
   Plus,
   Trash2,
   Megaphone,
@@ -31,16 +32,17 @@ const emptyForm = {
 };
 
 export default function AdminOpportunities() {
+  const { toast } = useToast();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
   const [actionId, setActionId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [rejectId, setRejectId] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [deleteId, setDeleteId] = useState(null);
 
   const fetchData = async (status = statusFilter) => {
     setLoading(true);
@@ -50,7 +52,7 @@ export default function AdminOpportunities() {
       const res = await apiRequest(`/opportunities?${params.toString()}`);
       setItems(res.data || []);
     } catch (err) {
-      setError(err.message || "Failed to load");
+      toast(err.message || "Failed to load", "error");
       setItems([]);
     } finally {
       setLoading(false);
@@ -70,23 +72,17 @@ export default function AdminOpportunities() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setError("");
-    setMessage("");
-
     try {
       await apiRequest("/opportunities", {
         method: "POST",
-        body: {
-          ...form,
-          deadline: form.deadline || undefined,
-        },
+        body: { ...form, deadline: form.deadline || undefined },
       });
-      setMessage("Opportunity published. Logged-in users can now see it.");
+      toast("Opportunity published", "success");
       setForm(emptyForm);
       setShowForm(false);
       await fetchData(statusFilter);
     } catch (err) {
-      setError(err.message || "Failed to create");
+      toast(err.message || "Failed to create", "error");
     } finally {
       setSaving(false);
     }
@@ -94,95 +90,67 @@ export default function AdminOpportunities() {
 
   const handleApprove = async (id) => {
     setActionId(id);
-    setError("");
-    setMessage("");
     try {
       await apiRequest(`/opportunities/${id}/approve`, { method: "PATCH" });
-      setMessage("Approved and published");
+      toast("Approved", "success");
       await fetchData(statusFilter);
     } catch (err) {
-      setError(err.message || "Approve failed");
+      toast(err.message || "Approve failed", "error");
     } finally {
       setActionId(null);
     }
   };
 
-  const handleReject = async (id) => {
-    const reason = window.prompt("Rejection reason (optional):") || "";
-    setActionId(id);
-    setError("");
-    setMessage("");
+  const handleReject = async () => {
+    if (!rejectId) return;
+    setActionId(rejectId);
     try {
-      await apiRequest(`/opportunities/${id}/reject`, {
+      await apiRequest(`/opportunities/${rejectId}/reject`, {
         method: "PATCH",
-        body: { reason },
+        body: { reason: rejectReason },
       });
-      setMessage("Rejected");
+      toast("Rejected", "success");
+      setRejectId(null);
+      setRejectReason("");
       await fetchData(statusFilter);
     } catch (err) {
-      setError(err.message || "Reject failed");
+      toast(err.message || "Reject failed", "error");
     } finally {
       setActionId(null);
     }
   };
 
-  const handleDelete = async (id, title) => {
-    const ok = window.confirm(`Delete opportunity "${title}"?`);
-    if (!ok) return;
-
-    setDeletingId(id);
-    setError("");
-    setMessage("");
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setActionId(deleteId);
     try {
-      await apiRequest(`/opportunities/${id}`, { method: "DELETE" });
-      setMessage("Deleted");
+      await apiRequest(`/opportunities/${deleteId}`, { method: "DELETE" });
+      toast("Deleted", "success");
+      setDeleteId(null);
       await fetchData(statusFilter);
     } catch (err) {
-      setError(err.message || "Delete failed");
+      toast(err.message || "Delete failed", "error");
     } finally {
-      setDeletingId(null);
+      setActionId(null);
     }
   };
 
   const pendingCount = items.filter((i) => i.status === "pending").length;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <Link
-            to="/admin"
-            className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-primary-600 mb-2"
-          >
-            <ArrowLeft size={14} /> Back to Admin Panel
-          </Link>
-          <h1 className="text-2xl font-bold text-slate-900">Opportunities</h1>
-          <p className="text-slate-500 text-sm mt-1">
-            Approve investor posts and publish MinT announcements
-          </p>
-        </div>
+    <AppShell
+      title="Opportunities"
+      subtitle="Approve investor posts and publish MinT announcements"
+      actions={
         <button
           type="button"
           onClick={() => setShowForm(!showForm)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-xl"
+          className="inline-flex items-center gap-2 px-3 py-2 bg-teal-600 text-white text-sm font-semibold rounded-xl"
         >
           <Plus size={16} /> New post
         </button>
-      </div>
-
-      {(message || error) && (
-        <div
-          className={`mb-4 px-4 py-3 rounded-xl text-sm ${
-            error
-              ? "bg-red-50 text-red-700 border border-red-100"
-              : "bg-green-50 text-green-700 border border-green-100"
-          }`}
-        >
-          {error || message}
-        </div>
-      )}
-
-      {/* Status filter */}
+      }
+    >
       <div className="flex flex-wrap gap-2 mb-6">
         {[
           { key: "all", label: "All" },
@@ -194,10 +162,10 @@ export default function AdminOpportunities() {
             key={t.key}
             type="button"
             onClick={() => setStatusFilter(t.key)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-full border ${
               statusFilter === t.key
-                ? "bg-primary-50 border-primary-500 text-primary-700"
-                : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                ? "bg-teal-50 border-teal-500 text-teal-800"
+                : "bg-white border-slate-200 text-slate-600"
             }`}
           >
             {t.label}
@@ -213,102 +181,69 @@ export default function AdminOpportunities() {
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="mb-8 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4"
+          className="mb-8 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4 max-w-2xl"
         >
-          <h2 className="font-semibold text-slate-900">Create opportunity (published immediately)</h2>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
-            <input
-              required
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="e.g. MinT Summer Internship 2026"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
-            <select
-              value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value })}
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              {TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-            <textarea
-              required
-              rows={5}
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="Full details..."
-            />
-          </div>
-
+          <h2 className="font-semibold text-slate-900">Create opportunity</h2>
+          <input
+            required
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            placeholder="Title"
+            className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
+          <select
+            value={form.type}
+            onChange={(e) => setForm({ ...form, type: e.target.value })}
+            className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+          >
+            {TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+          <textarea
+            required
+            rows={4}
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            placeholder="Description"
+            className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
           <div className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Deadline (optional)</label>
-              <input
-                type="date"
-                value={form.deadline}
-                onChange={(e) => setForm({ ...form, deadline: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Location (optional)</label>
-              <input
-                value={form.location}
-                onChange={(e) => setForm({ ...form, location: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                placeholder="Addis Ababa / Online"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Link (optional)</label>
             <input
-              type="url"
-              value={form.link}
-              onChange={(e) => setForm({ ...form, link: e.target.value })}
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="https://..."
+              type="date"
+              value={form.deadline}
+              onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+            <input
+              value={form.location}
+              onChange={(e) => setForm({ ...form, location: e.target.value })}
+              placeholder="Location"
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
           </div>
-
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2.5 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white text-sm font-semibold rounded-lg"
-            >
-              {saving ? "Publishing..." : "Publish"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 rounded-lg"
-            >
-              Cancel
-            </button>
-          </div>
+          <input
+            type="url"
+            value={form.link}
+            onChange={(e) => setForm({ ...form, link: e.target.value })}
+            placeholder="https://..."
+            className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-4 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-xl"
+          >
+            {saving ? "Publishing…" : "Publish"}
+          </button>
         </form>
       )}
 
       {loading ? (
         <div className="py-16 flex justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+          <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
         </div>
       ) : items.length === 0 ? (
         <div className="py-16 text-center bg-white rounded-2xl border border-slate-200">
@@ -327,26 +262,21 @@ export default function AdminOpportunities() {
                   <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize">
                     {item.type}
                   </span>
-                  <StatusBadge status={item.status} />
-                  <span className="text-xs text-slate-400">
-                    {item.createdAt
-                      ? new Date(item.createdAt).toLocaleDateString()
-                      : ""}
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full capitalize ${
+                      item.status === "approved"
+                        ? "bg-teal-50 text-teal-700"
+                        : item.status === "pending"
+                        ? "bg-amber-50 text-amber-700"
+                        : "bg-red-50 text-red-700"
+                    }`}
+                  >
+                    {item.status}
                   </span>
-                  {item.createdBy && (
-                    <span className="text-xs text-slate-500">
-                      by {item.createdBy.fullName}
-                      {item.createdBy.role === "investor" ? " (investor)" : " (admin)"}
-                    </span>
-                  )}
                 </div>
                 <h3 className="font-semibold text-slate-900 text-sm">{item.title}</h3>
                 <p className="text-xs text-slate-500 mt-1 line-clamp-2">{item.description}</p>
-                {item.status === "rejected" && item.rejectionReason && (
-                  <p className="mt-1 text-xs text-red-600">Reason: {item.rejectionReason}</p>
-                )}
               </div>
-
               <div className="flex flex-wrap items-center gap-2 shrink-0">
                 {item.status === "pending" && (
                   <>
@@ -354,20 +284,14 @@ export default function AdminOpportunities() {
                       type="button"
                       onClick={() => handleApprove(item._id)}
                       disabled={actionId === item._id}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg disabled:opacity-50"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-white bg-teal-600 rounded-lg"
                     >
-                      {actionId === item._id ? (
-                        <Loader2 size={13} className="animate-spin" />
-                      ) : (
-                        <CheckCircle size={13} />
-                      )}
-                      Approve
+                      <CheckCircle size={13} /> Approve
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleReject(item._id)}
-                      disabled={actionId === item._id}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg disabled:opacity-50"
+                      onClick={() => setRejectId(item._id)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 rounded-lg"
                     >
                       <XCircle size={13} /> Reject
                     </button>
@@ -375,39 +299,70 @@ export default function AdminOpportunities() {
                 )}
                 <button
                   type="button"
-                  onClick={() => handleDelete(item._id, item.title)}
-                  disabled={deletingId === item._id}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg disabled:opacity-50"
+                  onClick={() => setDeleteId(item._id)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 rounded-lg"
                 >
-                  {deletingId === item._id ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : (
-                    <Trash2 size={13} />
-                  )}
-                  Delete
+                  <Trash2 size={13} /> Delete
                 </button>
               </div>
             </div>
           ))}
         </div>
       )}
-    </div>
-  );
-}
 
-function StatusBadge({ status }) {
-  const styles = {
-    pending: "bg-amber-50 text-amber-700 border-amber-200",
-    approved: "bg-green-50 text-green-700 border-green-200",
-    rejected: "bg-red-50 text-red-700 border-red-200",
-  };
-  return (
-    <span
-      className={`px-2 py-0.5 text-[11px] font-medium rounded-full border capitalize ${
-        styles[status] || "bg-slate-50 text-slate-600 border-slate-200"
-      }`}
-    >
-      {status}
-    </span>
+      <Modal
+        open={!!rejectId}
+        onClose={() => setRejectId(null)}
+        title="Reject opportunity"
+        footer={
+          <>
+            <button
+              onClick={() => setRejectId(null)}
+              className="px-4 py-2 text-sm rounded-xl border border-slate-200"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleReject}
+              className="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-red-600"
+            >
+              Reject
+            </button>
+          </>
+        }
+      >
+        <textarea
+          value={rejectReason}
+          onChange={(e) => setRejectReason(e.target.value)}
+          rows={3}
+          placeholder="Reason (optional)"
+          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+        />
+      </Modal>
+
+      <Modal
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        title="Delete opportunity?"
+        footer={
+          <>
+            <button
+              onClick={() => setDeleteId(null)}
+              className="px-4 py-2 text-sm rounded-xl border border-slate-200"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDelete}
+              className="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-red-600"
+            >
+              Delete
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">This cannot be undone.</p>
+      </Modal>
+    </AppShell>
   );
 }

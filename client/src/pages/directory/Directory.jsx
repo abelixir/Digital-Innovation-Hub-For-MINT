@@ -1,202 +1,138 @@
-import { useState, useEffect, useMemo } from "react";
-import { Search, Loader2, Building2, SlidersHorizontal, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { apiRequest } from "../../utils/api";
-import { SECTORS, STAGES, LOCATIONS } from "../../data/mockData";
+import { useAuth } from "../../context/AuthContext";
+import AppShell from "../../components/AppShell";
 import StartupCard from "../../components/StartupCard";
+import { SECTORS, STAGES } from "../../data/mockData";
+import { Search, Loader2, Building2 } from "lucide-react";
 
-export default function Directory() {
+export default function Directory({ embedded = false }) {
+  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [startups, setStartups] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
   const [search, setSearch] = useState("");
   const [sector, setSector] = useState("");
   const [stage, setStage] = useState("");
-  const [location, setLocation] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
+
+  // Base path for detail links when inside console
+  const detailBase =
+    embedded && user?.role === "investor"
+      ? "/investor/directory"
+      : embedded && user?.role === "citizen"
+      ? "/citizen/directory"
+      : "/directory";
 
   useEffect(() => {
-    const fetchStartups = async () => {
+    const load = async () => {
       try {
         const res = await apiRequest("/startups");
         setStartups(res.data || []);
-      } catch (err) {
-        setError(err.message || "Failed to load startups");
+      } catch {
+        setStartups([]);
       } finally {
         setLoading(false);
       }
     };
-    fetchStartups();
+    load();
   }, []);
 
-  const filtered = useMemo(() => {
-    let list = [...startups];
+  const filtered = startups.filter((s) => {
+    const q = search.toLowerCase();
+    const matchQ =
+      !q ||
+      s.companyName?.toLowerCase().includes(q) ||
+      s.oneLineDescription?.toLowerCase().includes(q);
+    const matchSector = !sector || s.sector === sector;
+    const matchStage = !stage || s.fundingStage === stage;
+    return matchQ && matchSector && matchStage;
+  });
 
-    if (search) {
-      const q = search.toLowerCase();
-      list = list.filter(
-        (s) =>
-          s.companyName?.toLowerCase().includes(q) ||
-          s.oneLineDescription?.toLowerCase().includes(q) ||
-          s.sector?.toLowerCase().includes(q)
-      );
-    }
-    if (sector) list = list.filter((s) => s.sector === sector);
-    if (stage) list = list.filter((s) => s.fundingStage === stage);
-    if (location) list = list.filter((s) => s.location === location);
+  const body = (
+    <>
+      {!embedded && (
+        <div className="mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
+            Designated startups
+          </h1>
+          <p className="text-slate-500 mt-1 text-sm">
+            Public directory of startups designated by MinT.
+          </p>
+        </div>
+      )}
 
-    return list;
-  }, [startups, search, sector, stage, location]);
-
-  const activeFilters = [sector, stage, location].filter(Boolean).length;
-
-  const clearFilters = () => {
-    setSector("");
-    setStage("");
-    setLocation("");
-    setSearch("");
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-[50vh] flex flex-col items-center justify-center gap-3">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
-        <p className="text-sm text-slate-500">Loading verified startups…</p>
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm mb-8">
+        <div className="flex flex-col lg:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name or description…"
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+          <select
+            value={sector}
+            onChange={(e) => setSector(e.target.value)}
+            className="px-3 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+          >
+            <option value="">All sectors</option>
+            {SECTORS.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <select
+            value={stage}
+            onChange={(e) => setStage(e.target.value)}
+            className="px-3 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+          >
+            <option value="">All stages</option>
+            {STAGES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      {loading ? (
+        <div className="py-20 flex justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="py-20 text-center bg-white rounded-2xl border border-slate-200">
+          <Building2 className="mx-auto text-slate-300 mb-3" size={32} />
+          <p className="font-medium text-slate-700">No designated startups found</p>
+        </div>
+      ) : (
+        <>
+          <p className="text-sm text-slate-500 mb-4">
+            Showing {filtered.length} startup{filtered.length !== 1 ? "s" : ""}
+          </p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filtered.map((s) => (
+              <div
+                key={s._id || s.id}
+                onClick={() => navigate(`${detailBase}/${s._id || s.id}`)}
+                className="cursor-pointer"
+              >
+                <StartupCard startup={s} to={`${detailBase}/${s._id || s.id}`} />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  );
+
+  if (embedded || (isAuthenticated && (user?.role === "investor" || user?.role === "citizen"))) {
+    return (
+      <AppShell title="Designated startups" subtitle="Browse MinT-designated companies">
+        {body}
+      </AppShell>
     );
   }
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">Startup Directory</h1>
-        <p className="text-slate-600">
-          Browse MinT-verified Ethiopian startups. Only approved profiles appear here.
-        </p>
-      </div>
-
-      {/* Search + filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <div className="relative flex-1">
-          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, sector, or keyword…"
-            className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm bg-white"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowFilters(!showFilters)}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50"
-        >
-          <SlidersHorizontal size={16} />
-          Filters
-          {activeFilters > 0 && (
-            <span className="w-5 h-5 rounded-full bg-primary-600 text-white text-xs flex items-center justify-center">
-              {activeFilters}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {showFilters && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6 grid sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
-              Sector
-            </label>
-            <select
-              value={sector}
-              onChange={(e) => setSector(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="">All sectors</option>
-              {SECTORS.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
-              Stage
-            </label>
-            <select
-              value={stage}
-              onChange={(e) => setStage(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="">All stages</option>
-              {STAGES.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
-              Location
-            </label>
-            <select
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="">All locations</option>
-              {LOCATIONS.map((l) => (
-                <option key={l} value={l}>{l}</option>
-              ))}
-            </select>
-          </div>
-          {activeFilters > 0 && (
-            <div className="sm:col-span-3">
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-red-600"
-              >
-                <X size={14} /> Clear all filters
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-xl">{error}</div>
-      )}
-
-      <p className="text-sm text-slate-500 mb-5">
-        Showing <strong className="text-slate-800">{filtered.length}</strong> verified startup
-        {filtered.length !== 1 ? "s" : ""}
-      </p>
-
-      {filtered.length > 0 ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((s) => (
-            <StartupCard key={s._id} startup={s} />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-20 bg-slate-50 rounded-2xl border border-slate-100">
-          <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center mx-auto mb-4">
-            <Building2 className="text-slate-400" size={26} />
-          </div>
-          <p className="text-slate-700 font-medium mb-1">No startups match your filters</p>
-          <p className="text-slate-500 text-sm mb-4">
-            Try a different search or clear filters
-          </p>
-          {(activeFilters > 0 || search) && (
-            <button
-              onClick={clearFilters}
-              className="text-primary-600 font-medium text-sm hover:underline"
-            >
-              Clear filters
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
+  return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">{body}</div>;
 }

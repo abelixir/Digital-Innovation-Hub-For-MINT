@@ -1,35 +1,38 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
 import { apiRequest } from "../../utils/api";
+import AppShell from "../../components/AppShell";
 import StatCard from "../../components/StatCard";
+import StatusBadge from "../../components/StatusBadge";
 import { SECTORS } from "../../data/mockData";
 import {
   Building2,
   CheckCircle,
-  XCircle,
   Users,
   Loader2,
   Search,
   Inbox,
-  Trash2,
+  AlertTriangle,
+  ExternalLink,
 } from "lucide-react";
 
 const TABS = [
-  { key: "pending", label: "Pending" },
-  { key: "verified", label: "Verified" },
+  { key: "pending", label: "Queue" },
+  { key: "verified", label: "Designated" },
   { key: "rejected", label: "Rejected" },
+  { key: "suspended", label: "Suspended" },
   { key: "all", label: "All" },
 ];
 
 export default function AdminDashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [stats, setStats] = useState(null);
   const [startups, setStartups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [listLoading, setListLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState(null);
-
   const [tab, setTab] = useState("pending");
   const [search, setSearch] = useState("");
   const [sector, setSector] = useState("");
@@ -47,22 +50,38 @@ export default function AdminDashboard() {
     setListLoading(true);
     try {
       const params = new URLSearchParams();
-      if (status) params.set("status", status);
+      if (status && status !== "all") {
+        if (status === "pending") {
+          // backend accepts explicit status; for queue we fetch admin list and filter client-side too
+          params.set("status", "pending");
+        } else if (status === "verified") {
+          params.set("status", "verified");
+        } else {
+          params.set("status", status);
+        }
+      }
       if (q) params.set("search", q);
       if (sec) params.set("sector", sec);
 
       const res = await apiRequest(`/startups/admin?${params.toString()}`);
-      setStartups(res.data || []);
+      let rows = res.data || [];
+
+      if (status === "pending") {
+        rows = rows.filter((s) =>
+          ["pending", "submitted", "under_review"].includes(s.status)
+        );
+      }
+      if (status === "verified") {
+        rows = rows.filter((s) => ["verified", "designated"].includes(s.status));
+      }
+
+      setStartups(rows);
     } catch (err) {
-      console.error(err);
+      toast(err.message || "Failed to load startups", "error");
       setStartups([]);
     } finally {
       setListLoading(false);
     }
-  };
-
-  const refreshAll = async () => {
-    await Promise.all([fetchStats(), fetchStartups(tab, search, sector)]);
   };
 
   useEffect(() => {
@@ -72,12 +91,11 @@ export default function AdminDashboard() {
       setLoading(false);
     };
     init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (!loading) {
-      fetchStartups(tab, search, sector);
-    }
+    if (!loading) fetchStartups(tab, search, sector);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
@@ -86,130 +104,64 @@ export default function AdminDashboard() {
     fetchStartups(tab, search, sector);
   };
 
-  const handleApprove = async (id) => {
-    setActionLoading(id);
-    try {
-      // Optimistic UI update
-      setStartups((prev) =>
-        prev.map((s) =>
-          s._id === id
-            ? { ...s, status: "verified", verifiedAt: new Date().toISOString() }
-            : s
-        )
-      );
-      await apiRequest(`/startups/${id}/approve`, { method: "PATCH" });
-      await refreshAll();
-    } catch (err) {
-      alert(err.message);
-      await refreshAll();
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleReject = async (id) => {
-    const reason = prompt("Rejection reason (optional):");
-    setActionLoading(id);
-    try {
-      setStartups((prev) =>
-        prev.map((s) =>
-          s._id === id
-            ? {
-                ...s,
-                status: "rejected",
-                rejectionReason: reason || "Did not meet verification criteria",
-              }
-            : s
-        )
-      );
-      await apiRequest(`/startups/${id}/reject`, {
-        method: "PATCH",
-        body: { reason: reason || "Did not meet verification criteria" },
-      });
-      await refreshAll();
-    } catch (err) {
-      alert(err.message);
-      await refreshAll();
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleDelete = async (id, name) => {
-    const ok = window.confirm(`Delete startup "${name}" permanently?`);
-    if (!ok) return;
-
-    setActionLoading(id);
-    try {
-      setStartups((prev) => prev.filter((s) => s._id !== id));
-      await apiRequest(`/startups/${id}`, { method: "DELETE" });
-      await refreshAll();
-    } catch (err) {
-      alert(err.message);
-      await refreshAll();
-    } finally {
-      setActionLoading(null);
-    }
+  const isOverdue = (s) => {
+    if (!s.reviewDueAt) return false;
+    if (!["pending", "submitted", "under_review"].includes(s.status)) return false;
+    return new Date(s.reviewDueAt) < new Date();
   };
 
   if (loading) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
-      </div>
+      <AppShell title="Admin" subtitle="Loading…">
+        <div className="min-h-[40vh] flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+        </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">MinT Admin Panel</h1>
-          <p className="text-slate-500 text-sm mt-1">
-            Ecosystem oversight · {user?.fullName}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <AppShell
+      title="Designation Queue"
+      subtitle={`MinT oversight · ${user?.fullName || "Admin"}`}
+      actions={
+        <div className="flex gap-2">
           <Link
             to="/admin/opportunities"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-xl transition-colors"
+            className="hidden sm:inline-flex px-3 py-2 text-sm font-medium rounded-xl border border-slate-200 bg-white hover:bg-slate-50"
           >
             Opportunities
           </Link>
           <Link
             to="/admin/users"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-xl transition-colors"
+            className="inline-flex px-3 py-2 text-sm font-semibold rounded-xl bg-slate-900 text-white hover:bg-slate-800"
           >
-            <Users size={16} /> Manage Users
+            Users
           </Link>
         </div>
-      </div>
-
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Pending Review" value={stats?.pending ?? 0} icon={Inbox} color="amber" />
-        <StatCard label="Verified" value={stats?.verified ?? 0} icon={CheckCircle} color="primary" />
+      }
+    >
+      <div className="grid sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
+        <StatCard label="In queue" value={stats?.pending ?? 0} icon={Inbox} color="amber" />
+        <StatCard label="Overdue" value={stats?.overdue ?? 0} icon={AlertTriangle} color="red" />
+        <StatCard label="Designated" value={stats?.verified ?? 0} icon={CheckCircle} color="teal" />
         <StatCard label="Investors" value={stats?.totalInvestors ?? 0} icon={Users} color="purple" />
-        <StatCard label="Total Startups" value={stats?.totalStartups ?? 0} icon={Building2} color="blue" />
+        <StatCard label="Total startups" value={stats?.totalStartups ?? 0} icon={Building2} color="blue" />
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
-        <div className="px-4 sm:px-6 pt-4 border-b border-slate-100 flex flex-wrap gap-1">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-4 sm:px-6 pt-3 border-b border-slate-100 flex flex-wrap gap-1">
           {TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
                 tab === t.key
-                  ? "text-primary-700 border-b-2 border-primary-600 bg-primary-50/50"
+                  ? "text-teal-800 border-b-2 border-teal-600 bg-teal-50/60"
                   : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
               }`}
             >
               {t.label}
-              {t.key === "pending" && stats?.pending > 0 && (
-                <span className="ml-1.5 text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                  {stats.pending}
-                </span>
-              )}
             </button>
           ))}
         </div>
@@ -221,17 +173,16 @@ export default function AdminDashboard() {
           <div className="relative flex-1">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
-              type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by company name or description…"
-              className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="Search company or description…"
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
           </div>
           <select
             value={sector}
             onChange={(e) => setSector(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="px-3 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
           >
             <option value="">All sectors</option>
             {SECTORS.map((s) => (
@@ -242,7 +193,7 @@ export default function AdminDashboard() {
           </select>
           <button
             type="submit"
-            className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-lg"
+            className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-xl"
           >
             Filter
           </button>
@@ -250,122 +201,78 @@ export default function AdminDashboard() {
 
         {listLoading ? (
           <div className="py-16 flex justify-center">
-            <Loader2 className="w-7 h-7 animate-spin text-primary-600" />
+            <Loader2 className="w-7 h-7 animate-spin text-teal-600" />
           </div>
         ) : startups.length === 0 ? (
           <div className="py-16 text-center">
-            <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
-              <Inbox className="text-slate-400" size={22} />
-            </div>
-            <p className="text-slate-600 font-medium text-sm">No startups found</p>
-            <p className="text-slate-400 text-xs mt-1">Try another tab or clear your filters</p>
+            <Inbox className="mx-auto text-slate-300 mb-3" size={28} />
+            <p className="text-sm font-medium text-slate-700">No applications found</p>
+            <p className="text-xs text-slate-400 mt-1">Try another tab or clear filters</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {startups.map((item) => (
-              <div key={item._id} className="px-4 sm:px-6 py-5">
-                <div className="flex flex-col lg:flex-row lg:items-start gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span className="text-lg leading-none">{item.logo || "🚀"}</span>
-                      <h3 className="font-semibold text-slate-900 text-sm">{item.companyName}</h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 sm:px-6 py-3 font-semibold">Startup</th>
+                  <th className="px-4 py-3 font-semibold">Sector</th>
+                  <th className="px-4 py-3 font-semibold">Submitted</th>
+                  <th className="px-4 py-3 font-semibold">Due</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 sm:px-6 py-3 font-semibold text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {startups.map((item) => (
+                  <tr key={item._id} className="hover:bg-slate-50/80">
+                    <td className="px-4 sm:px-6 py-4">
+                      <div className="flex items-start gap-3 min-w-[200px]">
+                        <span className="text-lg leading-none mt-0.5">{item.logo || "🚀"}</span>
+                        <div>
+                          <div className="font-semibold text-slate-900">{item.companyName}</div>
+                          <div className="text-xs text-slate-500 mt-0.5">
+                            {item.founder?.fullName || "—"}
+                            {item.founder?.email ? ` · ${item.founder.email}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-slate-600 whitespace-nowrap">{item.sector}</td>
+                    <td className="px-4 py-4 text-slate-600 whitespace-nowrap">
+                      {new Date(item.submittedAt || item.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      {item.reviewDueAt ? (
+                        <span
+                          className={`text-xs font-medium ${
+                            isOverdue(item) ? "text-red-600" : "text-slate-600"
+                          }`}
+                        >
+                          {new Date(item.reviewDueAt).toLocaleDateString()}
+                          {isOverdue(item) ? " · overdue" : ""}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4">
                       <StatusBadge status={item.status} />
-                    </div>
-
-                    <p className="text-sm text-slate-600 line-clamp-2 mb-2">
-                      {item.oneLineDescription}
-                    </p>
-
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                      <span>{item.sector}</span>
-                      <span>{item.fundingStage}</span>
-                      <span>{item.location}</span>
-                      <span>Team: {item.teamSize}</span>
-                      <span>
-                        Founder: {item.founder?.fullName || "—"}
-                        {item.founder?.email ? ` · ${item.founder.email}` : ""}
-                      </span>
-                      <span>Submitted {new Date(item.createdAt).toLocaleDateString()}</span>
-                    </div>
-
-                    {item.status === "rejected" && item.rejectionReason && (
-                      <p className="mt-2 text-xs text-red-600 bg-red-50 px-2.5 py-1.5 rounded-lg inline-block">
-                        Reason: {item.rejectionReason}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    {item.status === "verified" && (
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 text-right">
                       <Link
-                        to={`/directory/${item._id}`}
-                        className="px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-lg"
+                        to={`/admin/cases/${item._id}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-600 text-white hover:bg-teal-700"
                       >
-                        View public
+                        Open case <ExternalLink size={12} />
                       </Link>
-                    )}
-
-                    {item.status === "pending" && (
-                      <>
-                        <button
-                          onClick={() => handleApprove(item._id)}
-                          disabled={actionLoading === item._id}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg disabled:opacity-50"
-                        >
-                          <CheckCircle size={13} /> Approve
-                        </button>
-                        <button
-                          onClick={() => handleReject(item._id)}
-                          disabled={actionLoading === item._id}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg disabled:opacity-50"
-                        >
-                          <XCircle size={13} /> Reject
-                        </button>
-                      </>
-                    )}
-
-                    {item.status === "rejected" && (
-                      <button
-                        onClick={() => handleApprove(item._id)}
-                        disabled={actionLoading === item._id}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg disabled:opacity-50"
-                      >
-                        <CheckCircle size={13} /> Approve anyway
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => handleDelete(item._id, item.companyName)}
-                      disabled={actionLoading === item._id}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg disabled:opacity-50"
-                    >
-                      <Trash2 size={13} /> Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function StatusBadge({ status }) {
-  const styles = {
-    pending: "bg-amber-50 text-amber-700 border-amber-200",
-    verified: "bg-green-50 text-green-700 border-green-200",
-    rejected: "bg-red-50 text-red-700 border-red-200",
-  };
-
-  return (
-    <span
-      className={`px-2 py-0.5 text-[11px] font-medium rounded-full border capitalize ${
-        styles[status] || "bg-slate-50 text-slate-600 border-slate-200"
-      }`}
-    >
-      {status}
-    </span>
+    </AppShell>
   );
 }

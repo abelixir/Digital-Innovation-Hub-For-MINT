@@ -1,93 +1,143 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { apiRequest } from "../../utils/api";
+import { useToast } from "../../context/ToastContext";
+import AppShell from "../../components/AppShell";
 import { SECTORS, STAGES, LOCATIONS } from "../../data/mockData";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
+
+const emptyForm = {
+  companyName: "",
+  logo: "🚀",
+  oneLineDescription: "",
+  sector: "FinTech",
+  fundingStage: "Idea",
+  location: "Addis Ababa",
+  teamSize: 1,
+  foundedYear: new Date().getFullYear(),
+  website: "",
+  problemStatement: "",
+  solutionStatement: "",
+  founderOwnershipPercent: "",
+  isPublicCompany: false,
+  dateEstablished: "",
+  hasBusinessLicense: false,
+  innovationDescription: "",
+  productOwnershipDeclaration: false,
+  legalStructure: "",
+};
 
 export default function CreateStartup() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
   const [isEdit, setIsEdit] = useState(false);
+  const [form, setForm] = useState(emptyForm);
 
-  const [form, setForm] = useState({
-    companyName: "",
-    logo: "🚀",
-    oneLineDescription: "",
-    sector: "FinTech",
-    fundingStage: "Idea",
-    location: "Addis Ababa",
-    teamSize: 1,
-    foundedYear: new Date().getFullYear(),
-    website: "",
-    problemStatement: "",
-    solutionStatement: "",
-  });
-
-  // Load existing startup if any
   useEffect(() => {
-    const loadStartup = async () => {
+    const load = async () => {
       try {
         const res = await apiRequest("/startups/my");
         if (res.data) {
           setIsEdit(true);
+          const d = res.data;
           setForm({
-            companyName: res.data.companyName || "",
-            logo: res.data.logo || "🚀",
-            oneLineDescription: res.data.oneLineDescription || "",
-            sector: res.data.sector || "FinTech",
-            fundingStage: res.data.fundingStage || "Idea",
-            location: res.data.location || "Addis Ababa",
-            teamSize: res.data.teamSize || 1,
-            foundedYear: res.data.foundedYear || new Date().getFullYear(),
-            website: res.data.website || "",
-            problemStatement: res.data.problemStatement || "",
-            solutionStatement: res.data.solutionStatement || "",
+            companyName: d.companyName || "",
+            logo: d.logo || "🚀",
+            oneLineDescription: d.oneLineDescription || "",
+            sector: d.sector || "FinTech",
+            fundingStage: d.fundingStage || "Idea",
+            location: d.location || "Addis Ababa",
+            teamSize: d.teamSize || 1,
+            foundedYear: d.foundedYear || new Date().getFullYear(),
+            website: d.website || "",
+            problemStatement: d.problemStatement || "",
+            solutionStatement: d.solutionStatement || "",
+            founderOwnershipPercent:
+              d.founderOwnershipPercent != null ? d.founderOwnershipPercent : "",
+            isPublicCompany: !!d.isPublicCompany,
+            dateEstablished: d.dateEstablished
+              ? new Date(d.dateEstablished).toISOString().slice(0, 10)
+              : "",
+            hasBusinessLicense: !!d.hasBusinessLicense,
+            innovationDescription: d.innovationDescription || "",
+            productOwnershipDeclaration: !!d.productOwnershipDeclaration,
+            legalStructure: d.legalStructure || "",
           });
         }
       } catch {
-        // No startup yet → create mode
         setIsEdit(false);
       } finally {
         setFetching(false);
       }
     };
-
-    loadStartup();
+    load();
   }, []);
 
+  const checklist = useMemo(() => {
+    const ownership = Number(form.founderOwnershipPercent);
+    return [
+      {
+        ok: !Number.isNaN(ownership) && ownership >= 25,
+        label: "Founder ownership ≥ 25%",
+      },
+      { ok: !form.isPublicCompany, label: "Not a public company" },
+      {
+        ok: (form.innovationDescription || form.solutionStatement || "").trim().length >= 10,
+        label: "Innovation / solution described",
+      },
+      {
+        ok: form.productOwnershipDeclaration === true,
+        label: "Product ownership declared",
+      },
+      {
+        ok:
+          !form.hasBusinessLicense ||
+          (!!form.dateEstablished &&
+            (new Date() - new Date(form.dateEstablished)) / (365.25 * 86400000) <= 5),
+        label: "If licensed, age ≤ 5 years",
+      },
+    ];
+  }, [form]);
+
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value, type, checked } = e.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-
     try {
       const payload = {
         ...form,
         teamSize: Number(form.teamSize),
         foundedYear: Number(form.foundedYear),
+        founderOwnershipPercent:
+          form.founderOwnershipPercent === ""
+            ? null
+            : Number(form.founderOwnershipPercent),
+        dateEstablished: form.dateEstablished || null,
+        strictEligibility: true,
       };
 
       if (isEdit) {
-        await apiRequest("/startups/my", {
-          method: "PUT",
-          body: payload,
-        });
+        await apiRequest("/startups/my", { method: "PUT", body: payload });
+        toast("Application updated", "success");
       } else {
-        await apiRequest("/startups", {
-          method: "POST",
-          body: payload,
-        });
+        await apiRequest("/startups", { method: "POST", body: payload });
+        toast("Application submitted for MinT review", "success");
       }
-
       navigate("/founder");
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Save failed");
+      toast(err.message || "Save failed", "error");
     } finally {
       setLoading(false);
     }
@@ -95,212 +145,199 @@ export default function CreateStartup() {
 
   if (fetching) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
-      </div>
+      <AppShell title="Application">
+        <div className="min-h-[40vh] flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+        </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <Link
-        to="/founder"
-        className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-primary-700 mb-6"
-      >
-        <ArrowLeft size={16} /> Back to Dashboard
-      </Link>
-
-      <h1 className="text-2xl font-bold text-slate-900 mb-2">
-        {isEdit ? "Edit Startup Profile" : "Create Startup Profile"}
-      </h1>
-      <p className="text-slate-500 text-sm mb-8">
-        {isEdit
-          ? "Update your startup information. Major changes may require re-verification by MinT."
-          : "Submit your startup for MinT verification. Only verified startups appear in the public directory."}
-      </p>
-
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-6 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm"
-      >
-        {/* Company Name + Logo */}
-        <div className="grid sm:grid-cols-4 gap-4">
-          <div className="sm:col-span-3">
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Company Name *
-            </label>
-            <input
-              name="companyName"
-              value={form.companyName}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-              placeholder="AgriLink Ethiopia"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Logo (emoji)
-            </label>
-            <input
-              name="logo"
-              value={form.logo}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm text-center text-xl"
-            />
-          </div>
-        </div>
-
-        {/* One Line Description */}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">
-            One-line Description *
-          </label>
-          <input
-            name="oneLineDescription"
-            value={form.oneLineDescription}
-            onChange={handleChange}
-            required
-            maxLength={200}
-            className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-            placeholder="Connecting smallholder farmers to buyers with AI-powered logistics"
-          />
-        </div>
-
-        {/* Sector, Stage, Location */}
-        <div className="grid sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Sector *</label>
-            <select
-              name="sector"
-              value={form.sector}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-            >
-              {SECTORS.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Funding Stage *
-            </label>
-            <select
-              name="fundingStage"
-              value={form.fundingStage}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-            >
-              {STAGES.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Location *</label>
-            <select
-              name="location"
-              value={form.location}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-            >
-              {LOCATIONS.map((l) => (
-                <option key={l} value={l}>{l}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Team Size + Founded Year + Website */}
-        <div className="grid sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Team Size</label>
-            <input
-              type="number"
-              name="teamSize"
-              value={form.teamSize}
-              onChange={handleChange}
-              min={1}
-              className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Founded Year</label>
-            <input
-              type="number"
-              name="foundedYear"
-              value={form.foundedYear}
-              onChange={handleChange}
-              min={2000}
-              max={new Date().getFullYear()}
-              className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Website</label>
-            <input
-              name="website"
-              value={form.website}
-              onChange={handleChange}
-              placeholder="https://..."
-              className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-            />
-          </div>
-        </div>
-
-        {/* Problem */}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">
-            Problem Statement *
-          </label>
-          <textarea
-            name="problemStatement"
-            value={form.problemStatement}
-            onChange={handleChange}
-            required
-            rows={3}
-            className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-            placeholder="What problem are you solving?"
-          />
-        </div>
-
-        {/* Solution */}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">
-            Solution Statement *
-          </label>
-          <textarea
-            name="solutionStatement"
-            value={form.solutionStatement}
-            onChange={handleChange}
-            required
-            rows={3}
-            className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-            placeholder="How does your product solve it?"
-          />
-        </div>
-
-        {error && (
-          <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full flex items-center justify-center gap-2 py-3 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white font-semibold rounded-lg transition-colors"
+    <AppShell
+      title={isEdit ? "Edit designation application" : "Startup designation application"}
+      subtitle="Aligned with Proclamation 1396/2025"
+      actions={
+        <Link
+          to="/founder"
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl border border-slate-200 bg-white hover:bg-slate-50"
         >
-          {loading ? (
-            <>
-              <Loader2 size={18} className="animate-spin" /> Saving...
-            </>
-          ) : isEdit ? (
-            "Save Changes"
-          ) : (
-            "Submit for MinT Verification"
+          <ArrowLeft size={16} /> Back
+        </Link>
+      }
+    >
+      <div className="grid lg:grid-cols-3 gap-6">
+        <form
+          onSubmit={handleSubmit}
+          className="lg:col-span-2 space-y-6 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm"
+        >
+          <Section title="Company identity">
+            <div className="grid sm:grid-cols-4 gap-4">
+              <Field className="sm:col-span-3" label="Company name *" name="companyName" value={form.companyName} onChange={handleChange} required />
+              <Field label="Logo" name="logo" value={form.logo} onChange={handleChange} />
+            </div>
+            <Field label="One-line description *" name="oneLineDescription" value={form.oneLineDescription} onChange={handleChange} required maxLength={200} />
+            <div className="grid sm:grid-cols-3 gap-4">
+              <Select label="Sector *" name="sector" value={form.sector} onChange={handleChange} options={SECTORS} />
+              <Select label="Funding stage *" name="fundingStage" value={form.fundingStage} onChange={handleChange} options={STAGES} />
+              <Select label="Location *" name="location" value={form.location} onChange={handleChange} options={LOCATIONS} />
+            </div>
+            <div className="grid sm:grid-cols-3 gap-4">
+              <Field type="number" label="Team size" name="teamSize" value={form.teamSize} onChange={handleChange} min={1} />
+              <Field type="number" label="Founded year" name="foundedYear" value={form.foundedYear} onChange={handleChange} />
+              <Field label="Website" name="website" value={form.website} onChange={handleChange} placeholder="https://" />
+            </div>
+          </Section>
+
+          <Section title="Problem & solution">
+            <TextArea label="Problem statement *" name="problemStatement" value={form.problemStatement} onChange={handleChange} required rows={3} />
+            <TextArea label="Solution statement *" name="solutionStatement" value={form.solutionStatement} onChange={handleChange} required rows={3} />
+            <TextArea
+              label="Innovation description"
+              name="innovationDescription"
+              value={form.innovationDescription}
+              onChange={handleChange}
+              rows={3}
+              placeholder="What is innovative / tech-enabled about this venture?"
+            />
+          </Section>
+
+          <Section title="Legal eligibility (Proclamation 1396/2025)">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <Field
+                type="number"
+                label="Founder ownership % *"
+                name="founderOwnershipPercent"
+                value={form.founderOwnershipPercent}
+                onChange={handleChange}
+                min={0}
+                max={100}
+                placeholder="Minimum 25"
+              />
+              <Select
+                label="Legal structure"
+                name="legalStructure"
+                value={form.legalStructure}
+                onChange={handleChange}
+                options={[
+                  { value: "", label: "Select…" },
+                  { value: "sole_proprietor", label: "Sole proprietor" },
+                  { value: "private_limited", label: "Private limited" },
+                  { value: "partnership", label: "Partnership" },
+                  { value: "other", label: "Other" },
+                ]}
+              />
+              <Field type="date" label="Date established" name="dateEstablished" value={form.dateEstablished} onChange={handleChange} />
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" name="isPublicCompany" checked={form.isPublicCompany} onChange={handleChange} className="rounded border-slate-300" />
+              This is a public company (not eligible)
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" name="hasBusinessLicense" checked={form.hasBusinessLicense} onChange={handleChange} className="rounded border-slate-300" />
+              Already has a business license
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" name="productOwnershipDeclaration" checked={form.productOwnershipDeclaration} onChange={handleChange} className="rounded border-slate-300" />
+              I declare product / IP ownership as required
+            </label>
+          </Section>
+
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-xl">{error}</p>
           )}
-        </button>
-      </form>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 py-3 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white font-semibold rounded-xl"
+          >
+            {loading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" /> Saving…
+              </>
+            ) : isEdit ? (
+              "Save application"
+            ) : (
+              "Submit for MinT designation review"
+            )}
+          </button>
+        </form>
+
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm h-fit sticky top-24">
+          <h3 className="font-semibold text-slate-900 mb-3">Live eligibility checklist</h3>
+          <ul className="space-y-2">
+            {checklist.map((c) => (
+              <li key={c.label} className="flex items-start gap-2 text-sm">
+                {c.ok ? (
+                  <CheckCircle2 size={16} className="text-teal-600 mt-0.5 shrink-0" />
+                ) : (
+                  <XCircle size={16} className="text-slate-300 mt-0.5 shrink-0" />
+                )}
+                <span className={c.ok ? "text-slate-800" : "text-slate-500"}>{c.label}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-slate-400 mt-4">
+            Server also validates these rules. Submission is blocked if required checks fail.
+          </p>
+        </div>
+      </div>
+    </AppShell>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div className="space-y-4">
+      <h3 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-2">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function Field({ label, className = "", ...props }) {
+  return (
+    <div className={className}>
+      <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+      <input
+        {...props}
+        className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+      />
+    </div>
+  );
+}
+
+function TextArea({ label, ...props }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+      <textarea
+        {...props}
+        className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+      />
+    </div>
+  );
+}
+
+function Select({ label, options, ...props }) {
+  const normalized = options.map((o) =>
+    typeof o === "string" ? { value: o, label: o } : o
+  );
+  return (
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+      <select
+        {...props}
+        className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm bg-white"
+      >
+        {normalized.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

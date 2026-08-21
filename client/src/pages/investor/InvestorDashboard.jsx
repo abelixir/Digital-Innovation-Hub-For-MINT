@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
 import { apiRequest } from "../../utils/api";
+import AppShell from "../../components/AppShell";
 import StatCard from "../../components/StatCard";
 import StartupCard from "../../components/StartupCard";
 import {
@@ -10,36 +12,22 @@ import {
   CheckCircle,
   Clock,
   Loader2,
-  Pencil,
   Inbox,
   Briefcase,
+  Building2,
 } from "lucide-react";
-import { SECTORS } from "../../data/mockData";
 
+/**
+ * Investor Discover page
+ * - Stats + access requests + recommended designated startups
+ * - NO document upload (that is founder /founder/data-room only)
+ */
 export default function InvestorDashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [requests, setRequests] = useState([]);
   const [recommended, setRecommended] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showEdit, setShowEdit] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [profileError, setProfileError] = useState("");
-
-  const [profileForm, setProfileForm] = useState({
-    organization: "",
-    investmentRange: "",
-    focus: [],
-  });
-
-  useEffect(() => {
-    if (user) {
-      setProfileForm({
-        organization: user.organization || "",
-        investmentRange: user.investmentRange || "",
-        focus: user.focus || [],
-      });
-    }
-  }, [user]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -49,93 +37,83 @@ export default function InvestorDashboard() {
           apiRequest("/startups"),
         ]);
         setRequests(requestsRes.data || []);
-        setRecommended((startupsRes.data || []).slice(0, 3));
+        setRecommended((startupsRes.data || []).slice(0, 6));
       } catch (err) {
         console.error(err);
+        toast(err.message || "Failed to load investor hub", "error");
       } finally {
         setLoading(false);
       }
     };
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const handleFocusToggle = (sector) => {
-    setProfileForm((prev) => {
-      const exists = prev.focus.includes(sector);
-      return {
-        ...prev,
-        focus: exists
-          ? prev.focus.filter((s) => s !== sector)
-          : [...prev.focus, sector],
-      };
-    });
-  };
-
-  const handleSaveProfile = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    setProfileError("");
-
-    try {
-      const res = await apiRequest("/auth/profile", {
-        method: "PUT",
-        body: profileForm,
-      });
-
-      const savedUser = JSON.parse(localStorage.getItem("dih_user") || "{}");
-      const updatedUser = { ...savedUser, ...res.user };
-      localStorage.setItem("dih_user", JSON.stringify(updatedUser));
-      window.location.reload();
-    } catch (err) {
-      setProfileError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const pendingCount = requests.filter((r) => r.status === "pending").length;
   const approvedCount = requests.filter((r) => r.status === "approved").length;
 
   if (loading) {
     return (
-      <div className="min-h-[50vh] flex flex-col items-center justify-center gap-3">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
-        <p className="text-sm text-slate-500">Loading investor hub…</p>
-      </div>
+      <AppShell title="Discover" subtitle="Loading…">
+        <div className="min-h-[40vh] flex flex-col items-center justify-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+          <p className="text-sm text-slate-500">Loading investor hub…</p>
+        </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Investor Hub</h1>
-        <p className="text-slate-500 text-sm mt-1">
-          Welcome, {user?.fullName}. Discover and evaluate MinT-verified startups.
-        </p>
-      </div>
-
+    <AppShell
+      title="Discover"
+      subtitle={`Welcome, ${user?.fullName || "Investor"} · Find designated startups`}
+      actions={
+        <Link
+          to="/investor/directory"
+          className="inline-flex items-center gap-2 px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-xl"
+        >
+          <Search size={16} /> Browse directory
+        </Link>
+      }
+    >
+      {/* KPI cards */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Requests Sent" value={requests.length} icon={Send} color="blue" />
-        <StatCard label="Approved" value={approvedCount} icon={CheckCircle} color="primary" />
-        <StatCard label="Pending" value={pendingCount} icon={Clock} color="amber" />
         <StatCard
-          label="Focus Sectors"
+          label="Requests sent"
+          value={requests.length}
+          icon={Send}
+          color="blue"
+        />
+        <StatCard
+          label="Approved"
+          value={approvedCount}
+          icon={CheckCircle}
+          color="teal"
+        />
+        <StatCard
+          label="Pending"
+          value={pendingCount}
+          icon={Clock}
+          color="amber"
+        />
+        <StatCard
+          label="Focus sectors"
           value={user?.focus?.length || 0}
-          icon={Search}
+          icon={Building2}
           color="purple"
         />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Requests */}
+        {/* Access requests — NOT document upload */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm">
           <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="font-semibold text-slate-900">My Access Requests</h2>
+            <h2 className="font-semibold text-slate-900">My access requests</h2>
             <Link
-              to="/directory"
-              className="text-xs font-medium text-primary-600 hover:underline"
+              to="/investor/directory"
+              className="text-xs font-medium text-teal-700 hover:underline"
             >
-              Browse more
+              Browse startups
             </Link>
           </div>
 
@@ -149,30 +127,37 @@ export default function InvestorDashboard() {
                   No access requests yet
                 </p>
                 <p className="text-xs text-slate-500 mb-4">
-                  Browse verified startups and request Data Room access.
+                  Open a designated startup and click &quot;Request data room&quot;.
+                  Founders approve access — you never upload files here.
                 </p>
                 <Link
-                  to="/directory"
-                  className="text-sm font-medium text-primary-600 hover:underline"
+                  to="/investor/directory"
+                  className="text-sm font-medium text-teal-700 hover:underline"
                 >
-                  Browse startups →
+                  Browse directory →
                 </Link>
               </div>
             ) : (
               requests.map((req) => (
-                <div key={req._id} className="px-6 py-4 flex items-center gap-4">
+                <div
+                  key={req._id}
+                  className="px-6 py-4 flex items-center gap-4"
+                >
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-slate-900 text-sm truncate">
                       {req.startup?.companyName || "Startup"}
                     </div>
                     <div className="text-xs text-slate-500 mt-0.5">
-                      Requested {new Date(req.createdAt).toLocaleDateString()}
+                      Requested{" "}
+                      {req.createdAt
+                        ? new Date(req.createdAt).toLocaleDateString()
+                        : "—"}
                       {req.startup?._id && (
                         <>
                           {" · "}
                           <Link
-                            to={`/directory/${req.startup._id}`}
-                            className="text-primary-600 hover:underline"
+                            to={`/investor/directory/${req.startup._id}`}
+                            className="text-teal-700 hover:underline"
                           >
                             View
                           </Link>
@@ -183,7 +168,7 @@ export default function InvestorDashboard() {
                   <span
                     className={`px-2.5 py-1 text-xs font-medium rounded-full capitalize shrink-0 ${
                       req.status === "approved"
-                        ? "bg-green-50 text-green-700"
+                        ? "bg-teal-50 text-teal-700"
                         : req.status === "pending"
                         ? "bg-amber-50 text-amber-700"
                         : "bg-red-50 text-red-700"
@@ -197,160 +182,78 @@ export default function InvestorDashboard() {
           </div>
         </div>
 
-        {/* Profile + actions */}
+        {/* Quick actions */}
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-900">Investor Profile</h3>
-              <button
-                type="button"
-                onClick={() => setShowEdit(!showEdit)}
-                className="p-1.5 text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-              >
-                <Pencil size={16} />
-              </button>
+            <h3 className="font-semibold text-slate-900 mb-3">Your profile</h3>
+            <div className="text-sm space-y-2 text-slate-600">
+              <p>
+                <span className="text-slate-400">Organization:</span>{" "}
+                {user?.organization || "Not set"}
+              </p>
+              <p>
+                <span className="text-slate-400">Range:</span>{" "}
+                {user?.investmentRange || "Not set"}
+              </p>
+              <p>
+                <span className="text-slate-400">Focus:</span>{" "}
+                {user?.focus?.length ? user.focus.join(", ") : "Not set"}
+              </p>
             </div>
-
-            {!showEdit ? (
-              <div className="text-sm space-y-2">
-                <div>
-                  <span className="text-slate-500">Organization:</span>{" "}
-                  <span className="font-medium text-slate-800">
-                    {user?.organization || "Not set"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Investment range:</span>{" "}
-                  <span className="font-medium text-slate-800">
-                    {user?.investmentRange || "Not set"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Focus:</span>{" "}
-                  <span className="font-medium text-slate-800">
-                    {user?.focus?.length > 0 ? user.focus.join(", ") : "Not set"}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handleSaveProfile} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
-                    Organization
-                  </label>
-                  <input
-                    value={profileForm.organization}
-                    onChange={(e) =>
-                      setProfileForm({ ...profileForm, organization: e.target.value })
-                    }
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    placeholder="East Africa Ventures"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
-                    Investment Range
-                  </label>
-                  <select
-                    value={profileForm.investmentRange}
-                    onChange={(e) =>
-                      setProfileForm({
-                        ...profileForm,
-                        investmentRange: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    <option value="">Select range</option>
-                    <option value="$10k–$50k">$10k–$50k</option>
-                    <option value="$50k–$250k">$50k–$250k</option>
-                    <option value="$250k–$1M">$250k–$1M</option>
-                    <option value="$1M+">$1M+</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                    Focus Sectors
-                  </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {SECTORS.map((sector) => (
-                      <button
-                        key={sector}
-                        type="button"
-                        onClick={() => handleFocusToggle(sector)}
-                        className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
-                          profileForm.focus.includes(sector)
-                            ? "bg-primary-50 border-primary-500 text-primary-700"
-                            : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                        }`}
-                      >
-                        {sector}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {profileError && (
-                  <p className="text-xs text-red-600">{profileError}</p>
-                )}
-
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="flex-1 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white text-sm font-semibold rounded-lg"
-                  >
-                    {saving ? "Saving..." : "Save"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowEdit(false)}
-                    className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            )}
+            <Link
+              to="/profile"
+              className="mt-4 inline-block text-sm font-medium text-teal-700 hover:underline"
+            >
+              Edit profile →
+            </Link>
           </div>
 
           <Link
-            to="/directory"
-            className="flex items-center justify-center gap-2 w-full py-3 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-xl transition-colors"
+            to="/investor/directory"
+            className="flex items-center justify-center gap-2 w-full py-3 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-xl"
           >
-            <Search size={16} /> Explore Directory
+            <Search size={16} /> Explore directory
           </Link>
 
           <Link
             to="/investor/opportunities"
-            className="flex items-center justify-center gap-2 w-full py-3 bg-white border border-slate-200 hover:border-primary-300 text-slate-800 text-sm font-semibold rounded-xl transition-colors"
+            className="flex items-center justify-center gap-2 w-full py-3 bg-white border border-slate-200 hover:border-teal-300 text-slate-800 text-sm font-semibold rounded-xl"
           >
-            <Briefcase size={16} /> Post Job / Internship
+            <Briefcase size={16} /> Post job / internship
           </Link>
 
           <Link
-            to="/opportunities"
-            className="flex items-center justify-center gap-2 w-full py-3 bg-white border border-slate-200 hover:border-primary-300 text-slate-800 text-sm font-semibold rounded-xl transition-colors"
+            to="/investor/browse-opportunities"
+            className="flex items-center justify-center gap-2 w-full py-3 bg-white border border-slate-200 hover:border-teal-300 text-slate-800 text-sm font-semibold rounded-xl"
           >
-            View All Opportunities
+            View all opportunities
           </Link>
         </div>
       </div>
 
+      {/* Recommended startups */}
       {recommended.length > 0 && (
         <div className="mt-10">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">
-            Recommended for you
-          </h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-slate-900">Designated startups</h2>
+            <Link
+              to="/investor/directory"
+              className="text-sm text-teal-700 hover:underline"
+            >
+              See all
+            </Link>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {recommended.map((s) => (
-              <StartupCard key={s._id} startup={s} />
+              <StartupCard
+                key={s._id || s.id}
+                startup={s}
+                to={`/investor/directory/${s._id || s.id}`}
+              />
             ))}
           </div>
         </div>
       )}
-    </div>
+    </AppShell>
   );
 }

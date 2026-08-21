@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Shield, BadgeCheck, ArrowRight, Building2, Users, Zap, Loader2
+  Shield,
+  BadgeCheck,
+  ArrowRight,
+  Building2,
+  Users,
+  Zap,
+  Loader2,
+  Award,
 } from "lucide-react";
 import { apiRequest } from "../utils/api";
 import StartupCard from "../components/StartupCard";
@@ -21,69 +28,56 @@ export default function Home() {
         setFeatured((startupsRes.data || []).slice(0, 3));
         setStats(statsRes.data);
       } catch (err) {
-        console.error("Failed to load home data:", err);
+        console.error(err);
         setFeatured([]);
       } finally {
         setLoading(false);
       }
     };
-
     fetchData();
   }, []);
 
   return (
     <div>
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-primary-950 to-slate-900 text-white">
+      <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-teal-950 to-slate-900 text-white">
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/20 border border-primary-400/30 text-primary-200 text-xs font-medium mb-6">
-              <Shield size={13} /> Official MinT Platform · Digital Ethiopia 2030
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-100 text-xs font-medium mb-6">
+              <Shield size={13} /> Official MinT Portal · Proclamation 1396/2025
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1] mb-6">
-              Ethiopia's Official
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-primary-300 to-accent-400">
-                Innovation Hub
+              Ethiopia&apos;s official
+              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-teal-300 to-amber-300">
+                Startup Designation Portal
               </span>
             </h1>
             <p className="text-lg sm:text-xl text-slate-300 leading-relaxed mb-8 max-w-2xl">
-              A government-backed platform connecting verified startups, trusted investors, and the Ministry of Innovation & Technology — built for transparency, deal-flow, and ecosystem growth.
+              Apply for MinT designation, receive certificates, manage data rooms,
+              and connect founders with investors under a transparent, audited
+              government workflow.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
                 to="/directory"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-primary-500 hover:bg-primary-400 text-white font-semibold rounded-xl shadow-lg shadow-primary-900/40 transition-all"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-teal-500 hover:bg-teal-400 text-white font-semibold rounded-xl shadow-lg shadow-teal-900/40"
               >
-                Explore Startups <ArrowRight size={18} />
+                Browse designated startups <ArrowRight size={18} />
               </Link>
               <Link
                 to="/register"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl border border-white/20 backdrop-blur transition-all"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl border border-white/20"
               >
-                Register Your Startup
+                Apply for designation
               </Link>
             </div>
           </div>
 
-          {/* Real Stats */}
           <div className="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              {
-                label: "Verified Startups",
-                value: stats ? `${stats.verifiedStartups}` : "—",
-              },
-              {
-                label: "Active Investors",
-                value: stats ? `${stats.totalInvestors}` : "—",
-              },
-              {
-                label: "Total Startups",
-                value: stats ? `${stats.totalStartups}` : "—",
-              },
-              {
-                label: "Sectors Covered",
-                value: stats ? `${stats.sectorsCovered}` : "7",
-              },
+              { label: "Designated startups", value: stats?.verifiedStartups ?? "—" },
+              { label: "Active investors", value: stats?.totalInvestors ?? "—" },
+              { label: "Total applications", value: stats?.totalStartups ?? "—" },
+              { label: "Sectors", value: stats?.sectorsCovered ?? "7" },
             ].map((s) => (
               <div
                 key={s.label}
@@ -97,39 +91,38 @@ export default function Home() {
         </div>
       </section>
 
-      {/* How it works */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
-            <h2 className="text-3xl font-bold text-slate-900 mb-3">How the Hub Works</h2>
+            <h2 className="text-3xl font-bold text-slate-900 mb-3">How the portal works</h2>
             <p className="text-slate-600 max-w-2xl mx-auto">
-              Three roles. One trusted system. Government verification as the trust anchor.
+              Designation is the trust anchor — not a simple verify button.
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
                 icon: Building2,
-                title: "For Startups",
-                desc: "Create your profile, upload Data Room documents, get MinT-verified, and receive investor interest with full control over who sees your sensitive materials.",
-                color: "bg-primary-50 text-primary-600",
+                title: "Founders",
+                desc: "Submit eligibility data, receive MinT review within working-day timelines, get a designation certificate, and control data-room access.",
+                color: "bg-teal-50 text-teal-700",
               },
               {
                 icon: Users,
-                title: "For Investors",
-                desc: "Browse only MinT-verified startups, filter by sector and stage, request Data Room access, and conduct due diligence through a secure, audited channel.",
-                color: "bg-blue-50 text-blue-600",
+                title: "Investors",
+                desc: "Browse only designated startups, request data-room access, and track approvals in one workspace.",
+                color: "bg-blue-50 text-blue-700",
               },
               {
-                icon: Shield,
-                title: "For MinT",
-                desc: "Review and approve startups, maintain ecosystem integrity, and access real-time analytics on sector trends, verification throughput, and deal-flow volume.",
-                color: "bg-amber-50 text-amber-600",
+                icon: Award,
+                title: "MinT Admin",
+                desc: "Case files, eligibility checks, designate / reject / suspend / revoke, certificates, and full audit trails.",
+                color: "bg-amber-50 text-amber-700",
               },
             ].map((item) => (
               <div
                 key={item.title}
-                className="relative bg-slate-50 rounded-2xl p-7 border border-slate-100 hover:border-primary-200 hover:shadow-md transition-all"
+                className="bg-slate-50 rounded-2xl p-7 border border-slate-100 hover:border-teal-200 hover:shadow-md transition-all"
               >
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-5 ${item.color}`}>
                   <item.icon size={24} />
@@ -142,27 +135,29 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Secure Data Room section */}
       <section className="py-20 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <div className="inline-flex items-center gap-2 text-primary-700 text-sm font-semibold mb-4">
-                <Zap size={16} /> Signature Module
+              <div className="inline-flex items-center gap-2 text-teal-700 text-sm font-semibold mb-4">
+                <Zap size={16} /> Core capability
               </div>
-              <h2 className="text-3xl font-bold text-slate-900 mb-4">Secure Data Room</h2>
+              <h2 className="text-3xl font-bold text-slate-900 mb-4">
+                Designation + secure data room
+              </h2>
               <p className="text-slate-600 leading-relaxed mb-6">
-                Startups show a public summary to everyone, while pitch decks, financials, and legal documents stay locked behind an explicit, founder-approved, revocable access grant. Every view is logged for audit.
+                Public profiles are open. Pitch decks, financials, and legal files stay
+                locked until the founder approves access — with an auditable trail.
               </p>
               <ul className="space-y-3">
                 {[
-                  "Permission-gated document vault",
-                  "Founder-controlled approve / deny / revoke",
-                  "Short-lived signed URLs only",
-                  "Full access history for transparency",
+                  "Legal eligibility checklist (ownership, age, innovation)",
+                  "30 working-day review timeline",
+                  "Official certificate with expiry & renewal",
+                  "Founder-controlled data room access",
                 ].map((t) => (
                   <li key={t} className="flex items-center gap-2.5 text-sm text-slate-700">
-                    <BadgeCheck size={18} className="text-primary-600 shrink-0" />
+                    <BadgeCheck size={18} className="text-teal-600 shrink-0" />
                     {t}
                   </li>
                 ))}
@@ -170,26 +165,21 @@ export default function Home() {
             </div>
             <div className="bg-white rounded-2xl border border-slate-200 shadow-xl p-6 space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <span className="text-sm font-semibold text-slate-800">Data Room — Example Startup</span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 font-medium">
-                  Access Granted
+                <span className="text-sm font-semibold text-slate-800">Case lifecycle</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 font-medium">
+                  Designated
                 </span>
               </div>
-              {["Pitch Deck.pdf", "Financial Projections.xlsx", "Business Registration.pdf", "Team Bios.pdf"].map(
-                (doc) => (
+              {["Submitted", "Under review", "Designated + certificate", "Renewal / suspend / revoke"].map(
+                (step, i) => (
                   <div
-                    key={doc}
-                    className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100"
+                    key={step}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center text-primary-600 text-xs font-bold">
-                        {doc.split(".").pop().toUpperCase()}
-                      </div>
-                      <span className="text-sm font-medium text-slate-700">{doc}</span>
+                    <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center text-xs font-bold">
+                      {i + 1}
                     </div>
-                    <button className="text-xs font-medium text-primary-600 hover:text-primary-700">
-                      View
-                    </button>
+                    <span className="text-sm font-medium text-slate-700">{step}</span>
                   </div>
                 )
               )}
@@ -198,17 +188,18 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Featured Startups - Real Data */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-end justify-between mb-10">
             <div>
-              <h2 className="text-3xl font-bold text-slate-900 mb-2">Featured Verified Startups</h2>
-              <p className="text-slate-600">Recently MinT-verified companies open for discovery</p>
+              <h2 className="text-3xl font-bold text-slate-900 mb-2">
+                Featured designated startups
+              </h2>
+              <p className="text-slate-600">Recently designated by MinT</p>
             </div>
             <Link
               to="/directory"
-              className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700 hover:text-primary-800"
+              className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-teal-700 hover:text-teal-800"
             >
               View all <ArrowRight size={16} />
             </Link>
@@ -216,7 +207,7 @@ export default function Home() {
 
           {loading ? (
             <div className="flex justify-center py-16">
-              <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+              <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
             </div>
           ) : featured.length > 0 ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -226,37 +217,35 @@ export default function Home() {
             </div>
           ) : (
             <div className="text-center py-16 bg-slate-50 rounded-2xl border border-slate-100">
-              <p className="text-slate-500 mb-4">No verified startups yet.</p>
-              <Link
-                to="/register"
-                className="text-primary-600 font-medium text-sm hover:underline"
-              >
-                Be the first to register →
+              <p className="text-slate-500 mb-4">No designated startups yet.</p>
+              <Link to="/register" className="text-teal-700 font-medium text-sm hover:underline">
+                Be the first to apply →
               </Link>
             </div>
           )}
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-16 bg-gradient-to-r from-primary-700 to-primary-900 text-white">
+      <section className="py-16 bg-gradient-to-r from-teal-700 to-teal-900 text-white">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-4">Ready to join Ethiopia's innovation ecosystem?</h2>
-          <p className="text-primary-100 mb-8 max-w-xl mx-auto">
-            Whether you are a founder seeking capital, an investor looking for deal-flow, or MinT staff managing verification — start here.
+          <h2 className="text-3xl font-bold mb-4">
+            Ready to join the official designation system?
+          </h2>
+          <p className="text-teal-100 mb-8 max-w-xl mx-auto">
+            Founders, investors, ecosystem builders, and MinT staff — one portal.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <Link
               to="/register"
-              className="px-6 py-3 bg-white text-primary-800 font-semibold rounded-xl hover:bg-primary-50 transition-colors"
+              className="px-6 py-3 bg-white text-teal-900 font-semibold rounded-xl hover:bg-teal-50"
             >
-              Create Account
+              Create account
             </Link>
             <Link
               to="/directory"
-              className="px-6 py-3 bg-primary-600/50 border border-white/30 text-white font-semibold rounded-xl hover:bg-primary-600/70 transition-colors"
+              className="px-6 py-3 bg-teal-600/50 border border-white/30 text-white font-semibold rounded-xl hover:bg-teal-600/70"
             >
-              Browse Directory
+              Browse directory
             </Link>
           </div>
         </div>
