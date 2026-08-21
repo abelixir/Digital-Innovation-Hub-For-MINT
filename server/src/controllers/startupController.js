@@ -32,13 +32,16 @@ exports.createStartup = async (req, res) => {
       });
     }
 
-    // Soft eligibility for now (old frontend may not send legal fields)
-    const eligibility = evaluateStartupEligibility(req.body, { strict: false });
+    // strictEligibility comes from request body (optional)
+    const strict = req.body?.strictEligibility === true;
+    const eligibility = evaluateStartupEligibility(req.body, { strict });
+
     if (!eligibility.ok) {
       return res.status(400).json({
         success: false,
         message: 'Eligibility checks failed',
         errors: eligibility.errors,
+        warnings: eligibility.warnings,
         checks: eligibility.checks,
       });
     }
@@ -46,8 +49,12 @@ exports.createStartup = async (req, res) => {
     const now = new Date();
     const reviewDueAt = addWorkingDays(now, 30);
 
+    // Do not store helper flag in DB
+    const payload = { ...req.body };
+    delete payload.strictEligibility;
+
     const startup = await Startup.create({
-      ...req.body,
+      ...payload,
       founder: req.user._id,
       status: 'pending',
       submittedAt: now,
@@ -61,7 +68,7 @@ exports.createStartup = async (req, res) => {
       reason: 'Startup application submitted',
       notes: eligibility.warnings.join('; '),
       actor: req.user._id,
-      meta: { eligibility },
+      meta: { eligibility, strict },
     });
 
     res.status(201).json({
@@ -109,14 +116,21 @@ exports.updateMyStartup = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Startup not found' });
     }
 
-    Object.assign(startup, req.body);
+    const payload = { ...req.body };
+    delete payload.strictEligibility;
 
-    const eligibility = evaluateStartupEligibility(startup, { strict: false });
+    Object.assign(startup, payload);
+
+    // strictEligibility comes from request body (optional)
+    const strict = req.body?.strictEligibility === true;
+    const eligibility = evaluateStartupEligibility(startup, { strict });
+
     if (!eligibility.ok) {
       return res.status(400).json({
         success: false,
         message: 'Eligibility checks failed',
         errors: eligibility.errors,
+        warnings: eligibility.warnings,
         checks: eligibility.checks,
       });
     }
@@ -190,14 +204,14 @@ exports.getStartupCase = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Startup not found' });
     }
 
-    const [certificate, auditTrail, eligibility] = await Promise.all([
+    const [certificate, auditTrail] = await Promise.all([
       DesignationCertificate.findOne({ startup: startup._id }).sort({ issuedAt: -1 }),
       CaseDecision.find({ entityType: 'startup', entityId: startup._id })
         .populate('actor', 'fullName email role')
         .sort({ createdAt: -1 }),
-      Promise.resolve(evaluateStartupEligibility(startup, { strict: false })),
     ]);
 
+    const eligibility = evaluateStartupEligibility(startup, { strict: false });
     const now = new Date();
     const isOverdue =
       startup.reviewDueAt &&
@@ -406,10 +420,7 @@ exports.rejectStartup = async (req, res) => {
 // ====================== ADMIN: SUSPEND ======================
 exports.suspendStartup = async (req, res) => {
   try {
-    const startup = await Startup.findById(req.params.id).populate(
-      'founder',
-      'fullName email'
-    );
+    const startup = await Startup.findById(req.params.id);
     if (!startup) {
       return res.status(404).json({ success: false, message: 'Startup not found' });
     }
@@ -451,10 +462,7 @@ exports.suspendStartup = async (req, res) => {
 // ====================== ADMIN: REVOKE ======================
 exports.revokeStartup = async (req, res) => {
   try {
-    const startup = await Startup.findById(req.params.id).populate(
-      'founder',
-      'fullName email'
-    );
+    const startup = await Startup.findById(req.params.id);
     if (!startup) {
       return res.status(404).json({ success: false, message: 'Startup not found' });
     }
@@ -489,6 +497,142 @@ exports.revokeStartup = async (req, res) => {
     });
   } catch (error) {
     console.error('Revoke startup error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
+  }
+};
+
+// ====================== FOUNDER: REQUEST RENEWAL ======================
+exports.requestRenewal = async (req, res) => {
+  try {
+    const startup = await Startup.findOne({ founder: req.user._id });
+    if (!startup) {
+      return res.status(404).json({ success: false, message: 'Startup not found' });
+    }
+
+    if (!['verified', 'designated', 'renewal_due'].includes(startup.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Only designated startups can request renewal',
+      });
+    }
+
+    if (!startup.designationExpiresAt) {
+      return res.status(400).json({
+        success: false,
+        message: 'No designation expiry date found',
+      });
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(startup.designationExpiresAt);
+    const daysLeft = (expiresAt - now) / (1000 * 60 * 60 * 24);
+
+    if (daysLeft > 30 && startup.status !== 'renewal_due') {
+      return res.status(400).json({
+        success: false,
+        message: 'Renewal can be requested within 30 days of expiry',
+      });
+    }
+
+    if (startup.designationMaxUntil && now > new Date(startup.designationMaxUntil)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Maximum designation period (8 years) has been reached',
+      });
+    }
+
+    startup.status = 'renewal_due';
+    await startup.save();
+
+    await CaseDecision.create({
+      entityType: 'startup',
+      entityId: startup._id,
+      action: 'renew',
+      reason: 'Founder requested designation renewal',
+      notes: req.body?.notes || '',
+      actor: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Renewal request submitted',
+      data: startup,
+    });
+  } catch (error) {
+    console.error('Request renewal error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
+  }
+};
+
+// ====================== ADMIN: APPROVE RENEWAL ======================
+exports.approveRenewal = async (req, res) => {
+  try {
+    const startup = await Startup.findById(req.params.id).populate(
+      'founder',
+      'fullName email'
+    );
+    if (!startup) {
+      return res.status(404).json({ success: false, message: 'Startup not found' });
+    }
+
+    if (startup.status !== 'renewal_due') {
+      return res.status(400).json({
+        success: false,
+        message: 'Startup is not in renewal_due status',
+      });
+    }
+
+    const now = new Date();
+    if (startup.designationMaxUntil && now > new Date(startup.designationMaxUntil)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Maximum designation period reached',
+      });
+    }
+
+    const newExpiry = addYears(now, 2);
+    if (
+      startup.designationMaxUntil &&
+      newExpiry > new Date(startup.designationMaxUntil)
+    ) {
+      startup.designationExpiresAt = startup.designationMaxUntil;
+    } else {
+      startup.designationExpiresAt = newExpiry;
+    }
+
+    startup.status = 'verified';
+    startup.designatedAt = now;
+    startup.reviewedBy = req.user._id;
+    startup.adminNotes = req.body?.notes || '';
+    await startup.save();
+
+    await DesignationCertificate.findOneAndUpdate(
+      { startup: startup._id },
+      {
+        expiresAt: startup.designationExpiresAt,
+        status: 'active',
+        issuedAt: now,
+        issuedBy: req.user._id,
+      }
+    );
+
+    await CaseDecision.create({
+      entityType: 'startup',
+      entityId: startup._id,
+      action: 'renew',
+      reason: 'Admin approved designation renewal',
+      notes: req.body?.notes || '',
+      actor: req.user._id,
+      meta: { designationExpiresAt: startup.designationExpiresAt },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Renewal approved',
+      data: startup,
+    });
+  } catch (error) {
+    console.error('Approve renewal error:', error);
     res.status(500).json({ success: false, message: error.message || 'Server error' });
   }
 };
@@ -530,14 +674,7 @@ exports.deleteStartup = async (req, res) => {
 exports.getAdminStats = async (req, res) => {
   try {
     const now = new Date();
-    const [
-      total,
-      verified,
-      pending,
-      rejected,
-      suspended,
-      overdue,
-    ] = await Promise.all([
+    const [total, verified, pending, rejected, suspended, overdue] = await Promise.all([
       Startup.countDocuments(),
       Startup.countDocuments({ status: { $in: PUBLIC_STATUSES } }),
       Startup.countDocuments({
