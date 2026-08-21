@@ -1,4 +1,4 @@
-const API_BASE = "https://digital-innovation-hub-for-mint.onrender.com/api";
+const API_BASE = import.meta.env.VITE_API_URL || "https://digital-innovation-hub-for-mint.onrender.com/api";
 
 export async function apiRequest(endpoint, options = {}) {
   const token = localStorage.getItem("dih_token");
