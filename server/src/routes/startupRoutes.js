@@ -5,20 +5,19 @@ const {
   updateMyStartup,
   getVerifiedStartups,
   getStartup,
+  getStartupCase,
   getPendingStartups,
   approveStartup,
   rejectStartup,
+  suspendStartup,
+  revokeStartup,
+  requestRenewal,
+  approveRenewal,
   getAdminStats,
   getPublicStats,
   getAdminStartups,
   deleteStartup,
-  suspendStartup,
-  revokeStartup,
-  getStartupCase,
-  requestRenewal,
-  approveRenewal,
 } = require('../controllers/startupController');
-const { migrateStartupDesignationData } = require('../controllers/migrationController');
 const { protect, restrictTo } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -30,24 +29,27 @@ router.get('/public-stats', getPublicStats);
 // Protected
 router.use(protect);
 
+// Founder
 router.post('/', restrictTo('founder'), createStartup);
 router.get('/my', restrictTo('founder'), getMyStartup);
 router.put('/my', restrictTo('founder'), updateMyStartup);
 router.post('/my/renew', restrictTo('founder'), requestRenewal);
 
+// Admin queue + stats
 router.get('/pending', restrictTo('admin'), getPendingStartups);
 router.get('/stats', restrictTo('admin'), getAdminStats);
 router.get('/admin', restrictTo('admin'), getAdminStartups);
-router.post('/admin/migrate-designation', restrictTo('admin'), migrateStartupDesignationData);
 
+// Admin case + decisions
 router.get('/:id/case', restrictTo('admin'), getStartupCase);
 router.patch('/:id/approve', restrictTo('admin'), approveStartup);
 router.patch('/:id/reject', restrictTo('admin'), rejectStartup);
 router.patch('/:id/suspend', restrictTo('admin'), suspendStartup);
 router.patch('/:id/revoke', restrictTo('admin'), revokeStartup);
-router.patch('/:id/renew/approve', restrictTo('admin'), approveRenewal);
+router.patch('/:id/approve-renewal', restrictTo('admin'), approveRenewal);
 router.delete('/:id', restrictTo('admin'), deleteStartup);
 
+// Detail (auth required so owner/admin can see non-public)
 router.get('/:id', getStartup);
 
 module.exports = router;
