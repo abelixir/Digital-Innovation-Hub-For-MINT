@@ -2,6 +2,10 @@ const Startup = require('../models/Startup');
 const CaseDecision = require('../models/CaseDecision');
 const DesignationCertificate = require('../models/DesignationCertificate');
 const sendEmail = require('../utils/sendEmail');
+const {
+  evaluateStartupEligibility,
+  addWorkingDays,
+} = require('../services/eligibilityService');
 
 const PUBLIC_STATUSES = ['verified', 'designated'];
 
@@ -28,9 +32,19 @@ exports.createStartup = async (req, res) => {
       });
     }
 
+    // Soft eligibility for now (old frontend may not send legal fields)
+    const eligibility = evaluateStartupEligibility(req.body, { strict: false });
+    if (!eligibility.ok) {
+      return res.status(400).json({
+        success: false,
+        message: 'Eligibility checks failed',
+        errors: eligibility.errors,
+        checks: eligibility.checks,
+      });
+    }
+
     const now = new Date();
-    const reviewDueAt = new Date(now);
-    reviewDueAt.setDate(reviewDueAt.getDate() + 30);
+    const reviewDueAt = addWorkingDays(now, 30);
 
     const startup = await Startup.create({
       ...req.body,
@@ -45,14 +59,16 @@ exports.createStartup = async (req, res) => {
       entityId: startup._id,
       action: 'submit',
       reason: 'Startup application submitted',
-      notes: '',
+      notes: eligibility.warnings.join('; '),
       actor: req.user._id,
+      meta: { eligibility },
     });
 
     res.status(201).json({
       success: true,
       message: 'Startup submitted successfully. Waiting for MinT designation review.',
       data: startup,
+      eligibility,
     });
   } catch (error) {
     console.error('Create startup error:', error);
@@ -72,7 +88,13 @@ exports.getMyStartup = async (req, res) => {
       });
     }
 
-    res.status(200).json({ success: true, data: startup });
+    const eligibility = evaluateStartupEligibility(startup, { strict: false });
+
+    res.status(200).json({
+      success: true,
+      data: startup,
+      eligibility,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });
   }
@@ -88,12 +110,24 @@ exports.updateMyStartup = async (req, res) => {
     }
 
     Object.assign(startup, req.body);
+
+    const eligibility = evaluateStartupEligibility(startup, { strict: false });
+    if (!eligibility.ok) {
+      return res.status(400).json({
+        success: false,
+        message: 'Eligibility checks failed',
+        errors: eligibility.errors,
+        checks: eligibility.checks,
+      });
+    }
+
     await startup.save();
 
     res.status(200).json({
       success: true,
       message: 'Startup updated successfully',
       data: startup,
+      eligibility,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message || 'Server error' });
@@ -144,6 +178,51 @@ exports.getStartup = async (req, res) => {
   }
 };
 
+// ====================== ADMIN: CASE DETAIL ======================
+exports.getStartupCase = async (req, res) => {
+  try {
+    const startup = await Startup.findById(req.params.id).populate(
+      'founder',
+      'fullName email role'
+    );
+
+    if (!startup) {
+      return res.status(404).json({ success: false, message: 'Startup not found' });
+    }
+
+    const [certificate, auditTrail, eligibility] = await Promise.all([
+      DesignationCertificate.findOne({ startup: startup._id }).sort({ issuedAt: -1 }),
+      CaseDecision.find({ entityType: 'startup', entityId: startup._id })
+        .populate('actor', 'fullName email role')
+        .sort({ createdAt: -1 }),
+      Promise.resolve(evaluateStartupEligibility(startup, { strict: false })),
+    ]);
+
+    const now = new Date();
+    const isOverdue =
+      startup.reviewDueAt &&
+      ['pending', 'submitted', 'under_review'].includes(startup.status) &&
+      new Date(startup.reviewDueAt) < now;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        startup,
+        certificate,
+        auditTrail,
+        eligibility,
+        meta: {
+          isOverdue: Boolean(isOverdue),
+          reviewDueAt: startup.reviewDueAt,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Get startup case error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
+  }
+};
+
 // ====================== ADMIN: GET PENDING STARTUPS ======================
 exports.getPendingStartups = async (req, res) => {
   try {
@@ -163,7 +242,7 @@ exports.getPendingStartups = async (req, res) => {
   }
 };
 
-// ====================== ADMIN: APPROVE / DESIGNATE STARTUP ======================
+// ====================== ADMIN: APPROVE / DESIGNATE ======================
 exports.approveStartup = async (req, res) => {
   try {
     const startup = await Startup.findById(req.params.id).populate(
@@ -193,6 +272,8 @@ exports.approveStartup = async (req, res) => {
     startup.designationMaxUntil = maxUntil;
     startup.certificateNumber = certificateNumber;
     startup.rejectionReason = '';
+    startup.suspensionReason = '';
+    startup.revocationReason = '';
     startup.reviewedBy = req.user._id;
     startup.adminNotes = notes;
     await startup.save();
@@ -221,10 +302,7 @@ exports.approveStartup = async (req, res) => {
       reason: 'Startup designated/verified by MinT admin',
       notes,
       actor: req.user._id,
-      meta: {
-        certificateNumber,
-        designationExpiresAt: expiresAt,
-      },
+      meta: { certificateNumber, designationExpiresAt: expiresAt },
     });
 
     if (founderEmail) {
@@ -241,21 +319,12 @@ exports.approveStartup = async (req, res) => {
             </p>
             <p><strong>Certificate No:</strong> ${certificateNumber}</p>
             <p><strong>Valid until:</strong> ${expiresAt.toDateString()}</p>
-            <p>Your startup is now visible in the public directory and open to investor interest.</p>
-            <p>
-              <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/directory/${startupId}"
-                 style="background: #0d9488; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
-                View Public Profile
-              </a>
-            </p>
             <p style="color: #666; font-size: 13px; margin-top: 30px;">
               Digital Innovation Hub · Ministry of Innovation and Technology
             </p>
           </div>
         `,
       });
-    } else {
-      console.log('Approve email skipped: founder email missing');
     }
 
     res.status(200).json({
@@ -269,7 +338,7 @@ exports.approveStartup = async (req, res) => {
   }
 };
 
-// ====================== ADMIN: REJECT STARTUP ======================
+// ====================== ADMIN: REJECT ======================
 exports.rejectStartup = async (req, res) => {
   try {
     const startup = await Startup.findById(req.params.id).populate(
@@ -315,21 +384,12 @@ exports.rejectStartup = async (req, res) => {
               MinT designation at this time.
             </p>
             <p><strong>Reason:</strong> ${reason}</p>
-            <p>You can update your profile and resubmit for review.</p>
-            <p>
-              <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/founder"
-                 style="background: #0d9488; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
-                Go to Dashboard
-              </a>
-            </p>
             <p style="color: #666; font-size: 13px; margin-top: 30px;">
               Digital Innovation Hub · Ministry of Innovation and Technology
             </p>
           </div>
         `,
       });
-    } else {
-      console.log('Reject email skipped: founder email missing');
     }
 
     res.status(200).json({
@@ -343,7 +403,97 @@ exports.rejectStartup = async (req, res) => {
   }
 };
 
-// ====================== ADMIN: DELETE STARTUP ======================
+// ====================== ADMIN: SUSPEND ======================
+exports.suspendStartup = async (req, res) => {
+  try {
+    const startup = await Startup.findById(req.params.id).populate(
+      'founder',
+      'fullName email'
+    );
+    if (!startup) {
+      return res.status(404).json({ success: false, message: 'Startup not found' });
+    }
+
+    const reason = req.body?.reason || 'Suspended by MinT admin';
+    const notes = req.body?.notes || '';
+
+    startup.status = 'suspended';
+    startup.suspensionReason = reason;
+    startup.reviewedBy = req.user._id;
+    startup.adminNotes = notes;
+    await startup.save();
+
+    await DesignationCertificate.updateMany(
+      { startup: startup._id, status: 'active' },
+      { status: 'suspended' }
+    );
+
+    await CaseDecision.create({
+      entityType: 'startup',
+      entityId: startup._id,
+      action: 'suspend',
+      reason,
+      notes,
+      actor: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Startup suspended',
+      data: startup,
+    });
+  } catch (error) {
+    console.error('Suspend startup error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
+  }
+};
+
+// ====================== ADMIN: REVOKE ======================
+exports.revokeStartup = async (req, res) => {
+  try {
+    const startup = await Startup.findById(req.params.id).populate(
+      'founder',
+      'fullName email'
+    );
+    if (!startup) {
+      return res.status(404).json({ success: false, message: 'Startup not found' });
+    }
+
+    const reason = req.body?.reason || 'Designation revoked by MinT admin';
+    const notes = req.body?.notes || '';
+
+    startup.status = 'revoked';
+    startup.revocationReason = reason;
+    startup.reviewedBy = req.user._id;
+    startup.adminNotes = notes;
+    await startup.save();
+
+    await DesignationCertificate.updateMany(
+      { startup: startup._id },
+      { status: 'revoked' }
+    );
+
+    await CaseDecision.create({
+      entityType: 'startup',
+      entityId: startup._id,
+      action: 'revoke',
+      reason,
+      notes,
+      actor: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Startup designation revoked',
+      data: startup,
+    });
+  } catch (error) {
+    console.error('Revoke startup error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
+  }
+};
+
+// ====================== ADMIN: DELETE ======================
 exports.deleteStartup = async (req, res) => {
   try {
     const startup = await Startup.findById(req.params.id);
@@ -354,7 +504,6 @@ exports.deleteStartup = async (req, res) => {
     const reason = req.body?.reason || 'Deleted by admin';
     const notes = req.body?.notes || '';
 
-    // Write audit first (safe even if body is empty)
     await CaseDecision.create({
       entityType: 'startup',
       entityId: startup._id,
@@ -377,16 +526,29 @@ exports.deleteStartup = async (req, res) => {
   }
 };
 
-// ====================== ADMIN: DASHBOARD STATS ======================
+// ====================== ADMIN: STATS ======================
 exports.getAdminStats = async (req, res) => {
   try {
-    const [total, verified, pending, rejected] = await Promise.all([
+    const now = new Date();
+    const [
+      total,
+      verified,
+      pending,
+      rejected,
+      suspended,
+      overdue,
+    ] = await Promise.all([
       Startup.countDocuments(),
       Startup.countDocuments({ status: { $in: PUBLIC_STATUSES } }),
       Startup.countDocuments({
         status: { $in: ['pending', 'submitted', 'under_review'] },
       }),
       Startup.countDocuments({ status: 'rejected' }),
+      Startup.countDocuments({ status: 'suspended' }),
+      Startup.countDocuments({
+        status: { $in: ['pending', 'submitted', 'under_review'] },
+        reviewDueAt: { $lt: now },
+      }),
     ]);
 
     const User = require('../models/User');
@@ -399,6 +561,8 @@ exports.getAdminStats = async (req, res) => {
         verified,
         pending,
         rejected,
+        suspended,
+        overdue,
         totalInvestors: investors,
       },
     });
@@ -408,7 +572,7 @@ exports.getAdminStats = async (req, res) => {
   }
 };
 
-// ====================== ADMIN: LIST STARTUPS BY STATUS ======================
+// ====================== ADMIN: LIST ======================
 exports.getAdminStartups = async (req, res) => {
   try {
     const { status, search, sector } = req.query;
@@ -438,7 +602,7 @@ exports.getAdminStartups = async (req, res) => {
   }
 };
 
-// ====================== PUBLIC: HOME PAGE STATS ======================
+// ====================== PUBLIC STATS ======================
 exports.getPublicStats = async (req, res) => {
   try {
     const User = require('../models/User');

@@ -12,6 +12,9 @@ const {
   getPublicStats,
   getAdminStartups,
   deleteStartup,
+  suspendStartup,
+  revokeStartup,
+  getStartupCase,
 } = require('../controllers/startupController');
 const { protect, restrictTo } = require('../middleware/authMiddleware');
 
@@ -32,8 +35,11 @@ router.get('/pending', restrictTo('admin'), getPendingStartups);
 router.get('/stats', restrictTo('admin'), getAdminStats);
 router.get('/admin', restrictTo('admin'), getAdminStartups);
 
+router.get('/:id/case', restrictTo('admin'), getStartupCase);
 router.patch('/:id/approve', restrictTo('admin'), approveStartup);
 router.patch('/:id/reject', restrictTo('admin'), rejectStartup);
+router.patch('/:id/suspend', restrictTo('admin'), suspendStartup);
+router.patch('/:id/revoke', restrictTo('admin'), revokeStartup);
 router.delete('/:id', restrictTo('admin'), deleteStartup);
 
 router.get('/:id', getStartup);

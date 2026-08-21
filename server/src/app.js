@@ -6,7 +6,8 @@ const accessRequestRoutes = require('./routes/accessRequestRoutes');
 const documentRoutes = require('./routes/documentRoutes');
 const userRoutes = require('./routes/userRoutes');
 const opportunityRoutes = require('./routes/opportunityRoutes');
-const sendEmail = require('./utils/sendEmail');
+const auditRoutes = require('./routes/auditRoutes');
+const certificateRoutes = require('./routes/certificateRoutes');
 
 const app = express();
 
@@ -19,6 +20,8 @@ app.use('/api/access-requests', accessRequestRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/opportunities', opportunityRoutes);
+app.use('/api/audit-logs', auditRoutes);
+app.use('/api/certificates', certificateRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Digital Innovation Hub API is running' });
