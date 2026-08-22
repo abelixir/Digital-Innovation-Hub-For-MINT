@@ -47,7 +47,7 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-2.5 group">
+          <Link to="/" className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-600 to-teal-800 flex items-center justify-center shadow-sm">
               <span className="text-white font-bold text-sm">MinT</span>
             </div>
@@ -64,6 +64,7 @@ export default function Navbar() {
           <nav className="hidden md:flex items-center gap-1">
             {navLink("/", "Home")}
             {navLink("/directory", "Designated Startups")}
+            {navLink("/builders", "Ecosystem Builders")}
             {isAuthenticated && navLink("/opportunities", "Opportunities")}
           </nav>
 
@@ -71,7 +72,9 @@ export default function Navbar() {
             {isAuthenticated ? (
               <div className="flex items-center gap-3">
                 <Link to={dashboardLink()} className="text-right hover:opacity-80">
-                  <div className="text-sm font-medium text-slate-900">{user.fullName}</div>
+                  <div className="text-sm font-medium text-slate-900">
+                    {user.fullName}
+                  </div>
                   <div className="text-xs text-slate-500 capitalize">
                     {user.role?.replace("_", " ")} · Workspace
                   </div>
@@ -115,6 +118,7 @@ export default function Navbar() {
         <div className="md:hidden border-t border-slate-200 bg-white px-4 py-4 space-y-1">
           {navLink("/", "Home")}
           {navLink("/directory", "Designated Startups")}
+          {navLink("/builders", "Ecosystem Builders")}
           {isAuthenticated && navLink("/opportunities", "Opportunities")}
           {isAuthenticated && (
             <>
@@ -144,7 +148,11 @@ export default function Navbar() {
               </button>
             ) : (
               <div className="flex flex-col gap-2">
-                <Link to="/login" onClick={() => setMobileOpen(false)} className="px-3 py-2 text-sm font-medium">
+                <Link
+                  to="/login"
+                  onClick={() => setMobileOpen(false)}
+                  className="px-3 py-2 text-sm font-medium"
+                >
                   Sign in
                 </Link>
                 <Link

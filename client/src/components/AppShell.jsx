@@ -33,14 +33,16 @@ const NAV = {
   ],
   investor: [
     { to: "/investor", label: "Discover", icon: LayoutDashboard, end: true },
-    { to: "/investor/directory", label: "Directory", icon: Building2 },
+    { to: "/investor/directory", label: "Startups", icon: Building2 },
+    { to: "/investor/builders", label: "Builders", icon: Shield },
     { to: "/investor/opportunities", label: "Post jobs", icon: Briefcase },
-    { to: "/investor/browse-opportunities", label: "All opportunities", icon: Shield },
+    { to: "/investor/browse-opportunities", label: "Opportunities", icon: Briefcase },
     { to: "/profile", label: "Profile", icon: User },
   ],
   citizen: [
     { to: "/citizen", label: "Home", icon: LayoutDashboard, end: true },
-    { to: "/citizen/directory", label: "Directory", icon: Building2 },
+    { to: "/citizen/directory", label: "Startups", icon: Building2 },
+    { to: "/citizen/builders", label: "Builders", icon: Shield },
     { to: "/citizen/opportunities", label: "Opportunities", icon: Briefcase },
     { to: "/profile", label: "Profile", icon: User },
   ],
@@ -73,7 +75,7 @@ export default function AppShell({ title, subtitle, actions, children }) {
   };
 
   const NavItems = ({ onNavigate }) => (
-    <nav className="flex-1 px-3 py-4 space-y-1">
+    <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
       {links.map((item) => {
         const Icon = item.icon;
         return (
@@ -100,7 +102,6 @@ export default function AppShell({ title, subtitle, actions, children }) {
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      {/* Desktop sidebar */}
       <aside className="hidden lg:flex w-64 flex-col border-r border-slate-200 bg-white fixed inset-y-0 left-0 z-30">
         <div className="px-5 py-5 border-b border-slate-100">
           <Link to={links[0]?.to || "/"} className="block">
@@ -115,14 +116,7 @@ export default function AppShell({ title, subtitle, actions, children }) {
 
         <NavItems />
 
-        <div className="border-t border-slate-100 p-3 space-y-1">
-          <Link
-            to="/profile"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-600 hover:bg-slate-50"
-          >
-            <User size={18} />
-            <span className="truncate">{user?.fullName || "Profile"}</span>
-          </Link>
+        <div className="border-t border-slate-100 p-3">
           <button
             type="button"
             onClick={handleLogout}
@@ -134,9 +128,7 @@ export default function AppShell({ title, subtitle, actions, children }) {
         </div>
       </aside>
 
-      {/* Main */}
       <div className="flex-1 lg:pl-64 min-w-0 flex flex-col min-h-screen">
-        {/* Top bar */}
         <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200">
           <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
             <button
@@ -159,14 +151,15 @@ export default function AppShell({ title, subtitle, actions, children }) {
               )}
             </div>
 
-            {actions && <div className="shrink-0 flex items-center gap-2">{actions}</div>}
+            {actions && (
+              <div className="shrink-0 flex items-center gap-2">{actions}</div>
+            )}
           </div>
         </header>
 
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6">{children}</main>
       </div>
 
-      {/* Mobile drawer */}
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div
@@ -190,14 +183,7 @@ export default function AppShell({ title, subtitle, actions, children }) {
               </button>
             </div>
             <NavItems onNavigate={() => setOpen(false)} />
-            <div className="border-t border-slate-100 p-3 space-y-1">
-              <Link
-                to="/profile"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-600 hover:bg-slate-50"
-              >
-                <User size={18} /> Profile
-              </Link>
+            <div className="border-t border-slate-100 p-3">
               <button
                 type="button"
                 onClick={handleLogout}
