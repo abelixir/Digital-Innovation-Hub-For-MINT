@@ -21,6 +21,9 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import Opportunities from "./pages/Opportunities";
 import AdminOpportunities from "./pages/admin/AdminOpportunities";
 import InvestorOpportunities from "./pages/investor/InvestorOpportunities";
+import BuilderDashboard from "./pages/builder/BuilderDashboard";
+import BuilderApplication from "./pages/builder/BuilderApplication";
+import AdminBuilders from "./pages/admin/AdminBuilders";
 
 function roleHome(role) {
   if (role === "founder") return "/founder";
@@ -69,7 +72,6 @@ function PublicOnlyRoute({ children }) {
   return children;
 }
 
-/** Public marketing chrome (top nav + footer) */
 function PublicLayout({ children }) {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -80,10 +82,20 @@ function PublicLayout({ children }) {
   );
 }
 
+function OpportunitiesRedirect() {
+  const { user } = useAuth();
+  if (user?.role === "citizen") return <Navigate to="/citizen/opportunities" replace />;
+  if (user?.role === "investor") return <Navigate to="/investor/browse-opportunities" replace />;
+  if (user?.role === "admin") return <Navigate to="/admin/opportunities" replace />;
+  if (user?.role === "founder") return <Navigate to="/founder" replace />;
+  if (user?.role === "ecosystem_builder") return <Navigate to="/builder" replace />;
+  return <Opportunities />;
+}
+
 function AppRoutes() {
   return (
     <Routes>
-      {/* ——— Public only ——— */}
+      {/* Public */}
       <Route path="/" element={<PublicLayout><Home /></PublicLayout>} />
       <Route
         path="/login"
@@ -101,12 +113,10 @@ function AppRoutes() {
           </PublicOnlyRoute>
         }
       />
-
-      {/* Public directory (guests) — top nav */}
       <Route path="/directory" element={<PublicLayout><Directory /></PublicLayout>} />
       <Route path="/directory/:id" element={<PublicLayout><StartupDetail /></PublicLayout>} />
 
-      {/* ——— Founder console (sidebar only, NO top nav) ——— */}
+      {/* Founder */}
       <Route
         path="/founder"
         element={
@@ -140,7 +150,7 @@ function AppRoutes() {
         }
       />
 
-      {/* ——— Investor console ——— */}
+      {/* Investor */}
       <Route
         path="/investor"
         element={
@@ -182,7 +192,7 @@ function AppRoutes() {
         }
       />
 
-      {/* ——— Citizen console ——— */}
+      {/* Citizen */}
       <Route
         path="/citizen"
         element={
@@ -216,7 +226,25 @@ function AppRoutes() {
         }
       />
 
-      {/* ——— Admin console ——— */}
+      {/* Ecosystem builder */}
+      <Route
+        path="/builder"
+        element={
+          <ProtectedRoute roles={["ecosystem_builder"]}>
+            <BuilderDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/builder/apply"
+        element={
+          <ProtectedRoute roles={["ecosystem_builder"]}>
+            <BuilderApplication />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Admin */}
       <Route
         path="/admin"
         element={
@@ -249,8 +277,16 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin/builders"
+        element={
+          <ProtectedRoute roles={["admin"]}>
+            <AdminBuilders />
+          </ProtectedRoute>
+        }
+      />
 
-      {/* Shared profile inside console shell */}
+      {/* Shared */}
       <Route
         path="/profile"
         element={
@@ -259,8 +295,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
-      {/* Legacy /opportunities → send role to their own path */}
       <Route
         path="/opportunities"
         element={
@@ -273,15 +307,6 @@ function AppRoutes() {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
-}
-
-function OpportunitiesRedirect() {
-  const { user } = useAuth();
-  if (user?.role === "citizen") return <Navigate to="/citizen/opportunities" replace />;
-  if (user?.role === "investor") return <Navigate to="/investor/browse-opportunities" replace />;
-  if (user?.role === "admin") return <Navigate to="/admin/opportunities" replace />;
-  if (user?.role === "founder") return <Navigate to="/founder" replace />;
-  return <Opportunities />;
 }
 
 export default function App() {
