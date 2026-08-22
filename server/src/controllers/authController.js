@@ -1,209 +1,209 @@
-import { useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import {
-  LayoutDashboard,
-  Users,
-  Briefcase,
-  FileText,
-  Inbox,
-  Award,
-  Building2,
-  Shield,
-  Menu,
-  X,
-  LogOut,
-  User,
-} from "lucide-react";
+const User = require('../models/User');
+const jwt = require('jsonwebtoken');
 
-const NAV = {
-  admin: [
-    { to: "/admin", label: "Designation Queue", icon: LayoutDashboard, end: true },
-    { to: "/admin/users", label: "Users", icon: Users },
-    { to: "/admin/opportunities", label: "Opportunities", icon: Briefcase },
-    { to: "/admin/builders", label: "Builders", icon: Building2 },
-  ],
-  founder: [
-    { to: "/founder", label: "Overview", icon: LayoutDashboard, end: true },
-    { to: "/founder/create", label: "Application", icon: FileText },
-    { to: "/founder/data-room", label: "Data Room", icon: Inbox },
-    { to: "/founder/certificate", label: "Certificate", icon: Award },
-  ],
-  investor: [
-    { to: "/investor", label: "Discover", icon: LayoutDashboard, end: true },
-    { to: "/investor/directory", label: "Directory", icon: Building2 },
-    { to: "/investor/opportunities", label: "Post jobs", icon: Briefcase },
-    { to: "/investor/browse-opportunities", label: "All opportunities", icon: Shield },
-  ],
-  citizen: [
-    { to: "/citizen", label: "Home", icon: LayoutDashboard, end: true },
-    { to: "/citizen/directory", label: "Directory", icon: Building2 },
-    { to: "/citizen/opportunities", label: "Opportunities", icon: Briefcase },
-  ],
-  ecosystem_builder: [
-    { to: "/builder", label: "Overview", icon: LayoutDashboard, end: true },
-    { to: "/builder/apply", label: "Application", icon: FileText },
-  ],
+const signToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  });
 };
 
-const ROLE_LABEL = {
-  admin: "MinT Admin",
-  founder: "Founder",
-  investor: "Investor",
-  citizen: "Citizen",
-  ecosystem_builder: "Ecosystem Builder",
+const formatUser = (user) => ({
+  id: user._id,
+  fullName: user.fullName,
+  email: user.email,
+  role: user.role,
+  companyName: user.companyName || '',
+  organization: user.organization || '',
+  organizationName: user.organizationName || '',
+  builderType: user.builderType || '',
+  investmentRange: user.investmentRange || '',
+  focus: user.focus || [],
+});
+
+// ====================== REGISTER ======================
+exports.register = async (req, res) => {
+  try {
+    const { fullName, email, password, role } = req.body;
+
+    if (!fullName || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide fullName, email and password',
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters',
+      });
+    }
+
+    // Allow ecosystem_builder (admin is never self-registered)
+    const allowedRoles = ['founder', 'investor', 'citizen', 'ecosystem_builder'];
+    const userRole = allowedRoles.includes(role) ? role : 'founder';
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already registered',
+      });
+    }
+
+    const user = await User.create({
+      fullName,
+      email,
+      password,
+      role: userRole,
+    });
+
+    const token = signToken(user._id);
+
+    res.status(201).json({
+      success: true,
+      message: 'Account created successfully',
+      token,
+      user: formatUser(user),
+    });
+  } catch (error) {
+    console.error('Register error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during registration',
+    });
+  }
 };
 
-export default function AppShell({ title, subtitle, actions, children }) {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
+// ====================== LOGIN ======================
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-  const role = user?.role || "citizen";
-  const links = NAV[role] || NAV.citizen;
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email and password',
+      });
+    }
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
+    const user = await User.findOne({ email }).select('+password');
 
-  const NavItems = ({ onNavigate }) => (
-    <nav className="flex-1 px-3 py-4 space-y-1">
-      {links.map((item) => {
-        const Icon = item.icon;
-        return (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-teal-50 text-teal-800"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-              }`
-            }
-          >
-            <Icon size={18} className="shrink-0" />
-            {item.label}
-          </NavLink>
-        );
-      })}
-    </nav>
-  );
+    if (!user || !(await user.comparePassword(password))) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password',
+      });
+    }
 
-  return (
-    <div className="min-h-screen bg-slate-50 flex">
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:flex w-64 flex-col border-r border-slate-200 bg-white fixed inset-y-0 left-0 z-30">
-        <div className="px-5 py-5 border-b border-slate-100">
-          <Link to={links[0]?.to || "/"} className="block">
-            <div className="text-sm font-bold text-teal-800 tracking-tight">
-              MinT Digital Portal
-            </div>
-            <div className="text-xs text-slate-500 mt-0.5">
-              {ROLE_LABEL[role] || role}
-            </div>
-          </Link>
-        </div>
+    const token = signToken(user._id);
 
-        <NavItems />
+    res.status(200).json({
+      success: true,
+      message: 'Logged in successfully',
+      token,
+      user: formatUser(user),
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during login',
+    });
+  }
+};
 
-        <div className="border-t border-slate-100 p-3 space-y-1">
-          <Link
-            to="/profile"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-600 hover:bg-slate-50"
-          >
-            <User size={18} />
-            <span className="truncate">{user?.fullName || "Profile"}</span>
-          </Link>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-600 hover:bg-red-50"
-          >
-            <LogOut size={18} />
-            Sign out
-          </button>
-        </div>
-      </aside>
+// ====================== UPDATE PROFILE ======================
+exports.updateProfile = async (req, res) => {
+  try {
+    const {
+      fullName,
+      companyName,
+      organization,
+      organizationName,
+      builderType,
+      investmentRange,
+      focus,
+      currentPassword,
+      newPassword,
+    } = req.body;
 
-      {/* Main */}
-      <div className="flex-1 lg:pl-64 min-w-0 flex flex-col min-h-screen">
-        {/* Top bar */}
-        <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200">
-          <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
-            <button
-              type="button"
-              className="lg:hidden p-2 rounded-xl border border-slate-200 text-slate-600"
-              onClick={() => setOpen(true)}
-              aria-label="Open menu"
-            >
-              <Menu size={18} />
-            </button>
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
 
-            <div className="min-w-0 flex-1">
-              {title && (
-                <h1 className="text-base sm:text-lg font-semibold text-slate-900 truncate">
-                  {title}
-                </h1>
-              )}
-              {subtitle && (
-                <p className="text-xs text-slate-500 truncate">{subtitle}</p>
-              )}
-            </div>
+    if (fullName !== undefined && fullName.trim()) {
+      user.fullName = fullName.trim();
+    }
 
-            {actions && <div className="shrink-0 flex items-center gap-2">{actions}</div>}
-          </div>
-        </header>
+    if (user.role === 'founder' && companyName !== undefined) {
+      user.companyName = companyName.trim();
+    }
 
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6">{children}</main>
-      </div>
+    if (user.role === 'investor') {
+      if (organization !== undefined) user.organization = organization.trim();
+      if (investmentRange !== undefined) user.investmentRange = investmentRange.trim();
+      if (focus !== undefined) {
+        user.focus = Array.isArray(focus) ? focus : [];
+      }
+    }
 
-      {/* Mobile drawer */}
-      {open && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div
-            className="absolute inset-0 bg-slate-900/40"
-            onClick={() => setOpen(false)}
-          />
-          <aside className="absolute inset-y-0 left-0 w-72 bg-white shadow-xl flex flex-col">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <div className="text-sm font-bold text-teal-800">MinT Portal</div>
-                <div className="text-xs text-slate-500">
-                  {ROLE_LABEL[role] || role}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="p-2 rounded-lg text-slate-500 hover:bg-slate-50"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <NavItems onNavigate={() => setOpen(false)} />
-            <div className="border-t border-slate-100 p-3 space-y-1">
-              <Link
-                to="/profile"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-600 hover:bg-slate-50"
-              >
-                <User size={18} /> Profile
-              </Link>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-600 hover:bg-red-50"
-              >
-                <LogOut size={18} /> Sign out
-              </button>
-            </div>
-          </aside>
-        </div>
-      )}
-    </div>
-  );
-}
+    if (user.role === 'ecosystem_builder') {
+      if (organizationName !== undefined) {
+        user.organizationName = organizationName.trim();
+      }
+      if (builderType !== undefined) user.builderType = builderType;
+    }
+
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'Current password is required to set a new password',
+        });
+      }
+
+      const isMatch = await user.comparePassword(currentPassword);
+      if (!isMatch) {
+        return res.status(400).json({
+          success: false,
+          message: 'Current password is incorrect',
+        });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'New password must be at least 6 characters',
+        });
+      }
+
+      user.password = newPassword;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: formatUser(user),
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// ====================== GET ME ======================
+exports.getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    res.status(200).json({ success: true, user: formatUser(user) });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
