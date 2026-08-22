@@ -4,17 +4,9 @@ const AccessRequest = require('../models/AccessRequest');
 const Document = require('../models/Document');
 const cloudinary = require('../config/cloudinary');
 
-const STAFF_ROLES = ['admin', 'reviewer'];
-const ASSIGNABLE_ROLES = [
-  'founder',
-  'investor',
-  'citizen',
-  'ecosystem_builder',
-  'reviewer',
-  'admin',
-];
+// Admin may only ASSIGN internal staff / demote to citizen
+const ASSIGNABLE_ROLES = ['citizen', 'reviewer', 'moderator', 'admin'];
 
-// ====================== ADMIN: GET ALL USERS ======================
 exports.getAllUsers = async (req, res) => {
   try {
     const { role, search } = req.query;
@@ -49,6 +41,7 @@ exports.getAllUsers = async (req, res) => {
       citizen: 0,
       ecosystem_builder: 0,
       reviewer: 0,
+      moderator: 0,
       total: 0,
     };
 
@@ -83,7 +76,6 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
-// ====================== ADMIN: UPDATE USER ROLE (assign staff) ======================
 exports.updateUserRole = async (req, res) => {
   try {
     const { id } = req.params;
@@ -92,7 +84,7 @@ exports.updateUserRole = async (req, res) => {
     if (!role || !ASSIGNABLE_ROLES.includes(role)) {
       return res.status(400).json({
         success: false,
-        message: `Role must be one of: ${ASSIGNABLE_ROLES.join(', ')}`,
+        message: `Staff role must be one of: ${ASSIGNABLE_ROLES.join(', ')}. Founder/investor/builder come from registration only.`,
       });
     }
 
@@ -108,7 +100,6 @@ exports.updateUserRole = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    // Protect last admin
     if (user.role === 'admin' && role !== 'admin') {
       const adminCount = await User.countDocuments({ role: 'admin' });
       if (adminCount <= 1) {
@@ -139,7 +130,6 @@ exports.updateUserRole = async (req, res) => {
   }
 };
 
-// ====================== ADMIN: DELETE USER ======================
 exports.deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -153,10 +143,7 @@ exports.deleteUser = async (req, res) => {
 
     const user = await User.findById(id);
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found',
-      });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     if (user.role === 'admin') {
@@ -171,7 +158,6 @@ exports.deleteUser = async (req, res) => {
 
     if (user.role === 'founder') {
       const startup = await Startup.findOne({ founder: user._id });
-
       if (startup) {
         const docs = await Document.find({ startup: startup._id });
         for (const doc of docs) {

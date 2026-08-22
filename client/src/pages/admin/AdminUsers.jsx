@@ -15,26 +15,22 @@ import {
   Shield,
   Trash2,
   ClipboardList,
+  Megaphone,
 } from "lucide-react";
 
 const ROLE_TABS = [
   { key: "all", label: "All" },
+  { key: "reviewer", label: "Reviewers" },
+  { key: "moderator", label: "Moderators" },
+  { key: "admin", label: "Admins" },
   { key: "founder", label: "Founders" },
   { key: "investor", label: "Investors" },
   { key: "citizen", label: "Citizens" },
   { key: "ecosystem_builder", label: "Builders" },
-  { key: "reviewer", label: "Reviewers" },
-  { key: "admin", label: "Admins" },
 ];
 
-const ASSIGNABLE = [
-  "founder",
-  "investor",
-  "citizen",
-  "ecosystem_builder",
-  "reviewer",
-  "admin",
-];
+// Only internal staff (+ demote to citizen). Not founder/investor/builder.
+const ASSIGNABLE = ["citizen", "reviewer", "moderator", "admin"];
 
 export default function AdminUsers() {
   const { user } = useAuth();
@@ -48,6 +44,7 @@ export default function AdminUsers() {
     citizen: 0,
     ecosystem_builder: 0,
     reviewer: 0,
+    moderator: 0,
   });
   const [loading, setLoading] = useState(true);
   const [listLoading, setListLoading] = useState(false);
@@ -56,7 +53,7 @@ export default function AdminUsers() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [roleTarget, setRoleTarget] = useState(null);
-  const [newRole, setNewRole] = useState("reviewer");
+  const [newRole, setNewRole] = useState("moderator");
   const [savingRole, setSavingRole] = useState(false);
 
   const fetchUsers = async (selectedRole = role, q = search) => {
@@ -133,17 +130,17 @@ export default function AdminUsers() {
   }
 
   return (
-    <AppShell title="Users" subtitle={`Managed by ${user?.fullName || "admin"}`}>
+    <AppShell title="Users" subtitle={`Staff assignment · ${user?.fullName || "admin"}`}>
+      <div className="mb-4 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
+        <strong>Assign staff only:</strong> reviewer, moderator, admin, or demote to citizen.
+        Founder / investor / builder roles come from public registration, not from this panel.
+      </div>
+
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Total users" value={roleCounts.total} icon={Users} color="blue" />
-        <StatCard label="Founders" value={roleCounts.founder} icon={Building2} color="teal" />
-        <StatCard label="Investors" value={roleCounts.investor} icon={Briefcase} color="purple" />
-        <StatCard
-          label="Reviewers"
-          value={roleCounts.reviewer || 0}
-          icon={ClipboardList}
-          color="amber"
-        />
+        <StatCard label="Total" value={roleCounts.total} icon={Users} color="blue" />
+        <StatCard label="Reviewers" value={roleCounts.reviewer || 0} icon={ClipboardList} color="amber" />
+        <StatCard label="Moderators" value={roleCounts.moderator || 0} icon={Megaphone} color="teal" />
+        <StatCard label="Admins" value={roleCounts.admin} icon={Shield} color="purple" />
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
@@ -152,7 +149,7 @@ export default function AdminUsers() {
             <button
               key={t.key}
               onClick={() => setRole(t.key)}
-              className={`px-4 py-2.5 text-sm font-medium rounded-t-lg ${
+              className={`px-3 py-2 text-sm font-medium rounded-t-lg ${
                 role === t.key
                   ? "text-teal-800 border-b-2 border-teal-600 bg-teal-50/50"
                   : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
@@ -175,7 +172,7 @@ export default function AdminUsers() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name, email, organization…"
+              placeholder="Search name or email…"
               className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
           </div>
@@ -229,11 +226,15 @@ export default function AdminUsers() {
                       disabled={isSelf}
                       onClick={() => {
                         setRoleTarget(u);
-                        setNewRole(u.role === "reviewer" ? "citizen" : "reviewer");
+                        setNewRole(
+                          ASSIGNABLE.includes(u.role) && u.role !== "admin"
+                            ? u.role
+                            : "moderator"
+                        );
                       }}
                       className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg disabled:opacity-40"
                     >
-                      <Shield size={13} /> Change role
+                      <Shield size={13} /> Assign staff role
                     </button>
                     <button
                       type="button"
@@ -254,7 +255,7 @@ export default function AdminUsers() {
       <Modal
         open={!!roleTarget}
         onClose={() => !savingRole && setRoleTarget(null)}
-        title="Assign role"
+        title="Assign staff role"
         footer={
           <>
             <button
@@ -269,26 +270,27 @@ export default function AdminUsers() {
               disabled={savingRole}
               className="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-teal-600"
             >
-              {savingRole ? "Saving…" : "Save role"}
+              {savingRole ? "Saving…" : "Save"}
             </button>
           </>
         }
       >
         <p className="text-sm text-slate-600 mb-3">
-          Assign role for <strong>{roleTarget?.fullName}</strong> ({roleTarget?.email}).
-          Staff roles (<code>reviewer</code>, <code>admin</code>) are not available via
-          public registration.
+          <strong>{roleTarget?.fullName}</strong> ({roleTarget?.email})
+          <br />
+          <span className="text-xs text-slate-500">
+            Current role: {roleTarget?.role}. You can only assign staff roles or citizen.
+          </span>
         </p>
         <select
           value={newRole}
           onChange={(e) => setNewRole(e.target.value)}
           className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm"
         >
-          {ASSIGNABLE.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
+          <option value="moderator">moderator — Opportunities officer</option>
+          <option value="reviewer">reviewer — Designation committee staff</option>
+          <option value="admin">admin — Ministry-level control</option>
+          <option value="citizen">citizen — Remove staff access</option>
         </select>
       </Modal>
 

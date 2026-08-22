@@ -30,6 +30,7 @@ const userSchema = new mongoose.Schema(
         'citizen',
         'ecosystem_builder',
         'reviewer',
+        'moderator',
       ],
       default: 'founder',
     },

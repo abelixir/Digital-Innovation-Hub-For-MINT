@@ -1,8 +1,13 @@
 const Opportunity = require('../models/Opportunity');
 
 const INVESTOR_ALLOWED_TYPES = ['internship', 'job'];
+const STAFF_ROLES = ['admin', 'moderator'];
 
-// ====================== CREATE (Admin or Investor) ======================
+function isStaff(role) {
+  return STAFF_ROLES.includes(role);
+}
+
+// ====================== CREATE ======================
 exports.createOpportunity = async (req, res) => {
   try {
     const { title, description, type, deadline, link, location } = req.body;
@@ -26,14 +31,14 @@ exports.createOpportunity = async (req, res) => {
         });
       }
       status = 'pending';
-    } else if (role === 'admin') {
-      // Admin posts are published immediately
+    } else if (isStaff(role)) {
+      // Moderator / admin posts go live immediately
       status = 'approved';
       if (!finalType) finalType = 'announcement';
     } else {
       return res.status(403).json({
         success: false,
-        message: 'Only admins and investors can create opportunities',
+        message: 'Only moderators, admins and investors can create opportunities',
       });
     }
 
@@ -53,7 +58,7 @@ exports.createOpportunity = async (req, res) => {
       message:
         status === 'approved'
           ? 'Opportunity published successfully'
-          : 'Opportunity submitted. Waiting for MinT admin approval.',
+          : 'Opportunity submitted. Waiting for staff approval.',
       data: opportunity,
     });
   } catch (error) {
@@ -63,14 +68,14 @@ exports.createOpportunity = async (req, res) => {
 };
 
 // ====================== LIST ======================
-// - All logged-in users: only approved + active
-// - Admin with ?all=true: everything
+// All logged-in users: approved + active
+// Admin/moderator with ?all=true: full moderation list
 exports.getOpportunities = async (req, res) => {
   try {
     const { type, status } = req.query;
     const filter = {};
 
-    if (req.user.role === 'admin' && req.query.all === 'true') {
+    if (isStaff(req.user.role) && req.query.all === 'true') {
       if (status && status !== 'all') {
         filter.status = status;
       }
@@ -98,7 +103,6 @@ exports.getOpportunities = async (req, res) => {
   }
 };
 
-// ====================== GET ONE ======================
 exports.getOpportunity = async (req, res) => {
   try {
     const opportunity = await Opportunity.findById(req.params.id).populate(
@@ -110,15 +114,15 @@ exports.getOpportunity = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Not found' });
     }
 
-    const isAdmin = req.user.role === 'admin';
+    const staff = isStaff(req.user.role);
     const isOwner =
       opportunity.createdBy?._id?.toString() === req.user._id.toString();
 
-    if (opportunity.status !== 'approved' && !isAdmin && !isOwner) {
+    if (opportunity.status !== 'approved' && !staff && !isOwner) {
       return res.status(404).json({ success: false, message: 'Not found' });
     }
 
-    if (!opportunity.isActive && !isAdmin) {
+    if (!opportunity.isActive && !staff) {
       return res.status(404).json({ success: false, message: 'Not found' });
     }
 
@@ -128,11 +132,9 @@ exports.getOpportunity = async (req, res) => {
   }
 };
 
-// ====================== ADMIN: APPROVE ======================
 exports.approveOpportunity = async (req, res) => {
   try {
     const opportunity = await Opportunity.findById(req.params.id);
-
     if (!opportunity) {
       return res.status(404).json({ success: false, message: 'Not found' });
     }
@@ -144,7 +146,7 @@ exports.approveOpportunity = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Opportunity approved and published',
+      message: 'Opportunity approved and published for all logged-in users',
       data: opportunity,
     });
   } catch (error) {
@@ -153,11 +155,9 @@ exports.approveOpportunity = async (req, res) => {
   }
 };
 
-// ====================== ADMIN: REJECT ======================
 exports.rejectOpportunity = async (req, res) => {
   try {
     const opportunity = await Opportunity.findById(req.params.id);
-
     if (!opportunity) {
       return res.status(404).json({ success: false, message: 'Not found' });
     }
@@ -181,7 +181,6 @@ exports.rejectOpportunity = async (req, res) => {
   }
 };
 
-// ====================== ADMIN: UPDATE ======================
 exports.updateOpportunity = async (req, res) => {
   try {
     const opportunity = await Opportunity.findById(req.params.id);
@@ -219,7 +218,6 @@ exports.updateOpportunity = async (req, res) => {
   }
 };
 
-// ====================== ADMIN: DELETE ======================
 exports.deleteOpportunity = async (req, res) => {
   try {
     const opportunity = await Opportunity.findById(req.params.id);
@@ -239,7 +237,6 @@ exports.deleteOpportunity = async (req, res) => {
   }
 };
 
-// ====================== INVESTOR: MY POSTS ======================
 exports.getMyOpportunities = async (req, res) => {
   try {
     const opportunities = await Opportunity.find({ createdBy: req.user._id }).sort({

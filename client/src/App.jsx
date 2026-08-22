@@ -12,6 +12,7 @@ import FounderDashboard from "./pages/founder/FounderDashboard";
 import InvestorDashboard from "./pages/investor/InvestorDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminCaseDetail from "./pages/admin/AdminCaseDetail";
+import AdminBuilders from "./pages/admin/AdminBuilders";
 import CreateStartup from "./pages/founder/CreateStartup";
 import DataRoom from "./pages/founder/DataRoom";
 import FounderCertificate from "./pages/founder/FounderCertificate";
@@ -28,6 +29,7 @@ function roleHome(role) {
   if (role === "investor") return "/investor";
   if (role === "admin") return "/admin";
   if (role === "reviewer") return "/reviewer";
+  if (role === "moderator") return "/moderator";
   if (role === "citizen") return "/citizen";
   if (role === "ecosystem_builder") return "/builder";
   return "/";
@@ -84,6 +86,7 @@ function PublicLayout({ children }) {
 function AppRoutes() {
   return (
     <Routes>
+      {/* ——— Public only ——— */}
       <Route path="/" element={<PublicLayout><Home /></PublicLayout>} />
       <Route
         path="/login"
@@ -105,6 +108,7 @@ function AppRoutes() {
       <Route path="/directory" element={<PublicLayout><Directory /></PublicLayout>} />
       <Route path="/directory/:id" element={<PublicLayout><StartupDetail /></PublicLayout>} />
 
+      {/* ——— Founder ——— */}
       <Route
         path="/founder"
         element={
@@ -137,7 +141,16 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/founder/opportunities"
+        element={
+          <ProtectedRoute roles={["founder"]}>
+            <Opportunities embedded />
+          </ProtectedRoute>
+        }
+      />
 
+      {/* ——— Investor ——— */}
       <Route
         path="/investor"
         element={
@@ -179,6 +192,7 @@ function AppRoutes() {
         }
       />
 
+      {/* ——— Citizen ——— */}
       <Route
         path="/citizen"
         element={
@@ -212,7 +226,7 @@ function AppRoutes() {
         }
       />
 
-      {/* Admin */}
+      {/* ——— Admin ——— */}
       <Route
         path="/admin"
         element={
@@ -245,8 +259,16 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin/builders"
+        element={
+          <ProtectedRoute roles={["admin"]}>
+            <AdminBuilders />
+          </ProtectedRoute>
+        }
+      />
 
-      {/* Reviewer staff */}
+      {/* ——— Reviewer (designation staff) ——— */}
       <Route
         path="/reviewer"
         element={
@@ -263,7 +285,44 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/reviewer/opportunities"
+        element={
+          <ProtectedRoute roles={["reviewer"]}>
+            <Opportunities embedded />
+          </ProtectedRoute>
+        }
+      />
 
+      {/* ——— Moderator (opportunities officer) ——— */}
+      <Route
+        path="/moderator"
+        element={
+          <ProtectedRoute roles={["moderator"]}>
+            <AdminOpportunities />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/moderator/browse"
+        element={
+          <ProtectedRoute roles={["moderator"]}>
+            <Opportunities embedded />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* ——— Ecosystem builder ——— */}
+      <Route
+        path="/builder/opportunities"
+        element={
+          <ProtectedRoute roles={["ecosystem_builder"]}>
+            <Opportunities embedded />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Shared profile */}
       <Route
         path="/profile"
         element={
@@ -273,6 +332,7 @@ function AppRoutes() {
         }
       />
 
+      {/* Legacy opportunities redirect */}
       <Route
         path="/opportunities"
         element={
@@ -292,8 +352,10 @@ function OpportunitiesRedirect() {
   if (user?.role === "citizen") return <Navigate to="/citizen/opportunities" replace />;
   if (user?.role === "investor") return <Navigate to="/investor/browse-opportunities" replace />;
   if (user?.role === "admin") return <Navigate to="/admin/opportunities" replace />;
-  if (user?.role === "founder") return <Navigate to="/founder" replace />;
-  if (user?.role === "reviewer") return <Navigate to="/reviewer" replace />;
+  if (user?.role === "founder") return <Navigate to="/founder/opportunities" replace />;
+  if (user?.role === "reviewer") return <Navigate to="/reviewer/opportunities" replace />;
+  if (user?.role === "moderator") return <Navigate to="/moderator" replace />;
+  if (user?.role === "ecosystem_builder") return <Navigate to="/builder/opportunities" replace />;
   return <Opportunities />;
 }
 
