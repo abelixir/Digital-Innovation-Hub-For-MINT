@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { apiRequest } from "../../utils/api";
 import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
 import AppShell from "../../components/AppShell";
 import StatusBadge from "../../components/StatusBadge";
 import Modal from "../../components/ui/Modal";
@@ -14,6 +15,7 @@ import {
   ShieldOff,
   RefreshCw,
   FileBadge2,
+  ClipboardList,
 } from "lucide-react";
 
 const DECISIONS = {
@@ -54,15 +56,56 @@ const DECISIONS = {
   },
 };
 
+function Info({ label, value }) {
+  return (
+    <div>
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className="font-medium text-slate-800 break-words">{value}</div>
+    </div>
+  );
+}
+
+function Block({ title, body }) {
+  return (
+    <div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">
+        {title}
+      </div>
+      <p className="text-sm text-slate-700 whitespace-pre-wrap">{body || "—"}</p>
+    </div>
+  );
+}
+
+function DecisionBtn({ type, onClick }) {
+  const cfg = DECISIONS[type];
+  if (!cfg) return null;
+  const Icon = cfg.icon;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-semibold text-white rounded-xl ${cfg.color}`}
+    >
+      <Icon size={16} /> {cfg.label}
+    </button>
+  );
+}
+
 export default function AdminCaseDetail() {
   const { id } = useParams();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const queuePath = isAdmin ? "/admin" : "/reviewer";
+
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [modal, setModal] = useState(null);
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [reviewNotes, setReviewNotes] = useState("");
+  const [startingReview, setStartingReview] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -107,6 +150,23 @@ export default function AdminCaseDetail() {
     }
   };
 
+  const handleStartReview = async () => {
+    setStartingReview(true);
+    try {
+      await apiRequest(`/startups/${id}/start-review`, {
+        method: "PATCH",
+        body: { notes: reviewNotes.trim() },
+      });
+      toast("Marked under review", "success");
+      setReviewNotes("");
+      await load();
+    } catch (err) {
+      toast(err.message || "Failed to start review", "error");
+    } finally {
+      setStartingReview(false);
+    }
+  };
+
   if (loading) {
     return (
       <AppShell title="Case detail">
@@ -120,7 +180,7 @@ export default function AdminCaseDetail() {
   if (!data?.startup) {
     return (
       <AppShell title="Case not found">
-        <Link to="/admin" className="text-teal-700 text-sm font-medium">
+        <Link to={queuePath} className="text-teal-700 text-sm font-medium">
           ← Back to queue
         </Link>
       </AppShell>
@@ -136,7 +196,7 @@ export default function AdminCaseDetail() {
       subtitle="Designation case file"
       actions={
         <Link
-          to="/admin"
+          to={queuePath}
           className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl border border-slate-200 bg-white hover:bg-slate-50"
         >
           <ArrowLeft size={16} /> Queue
@@ -144,7 +204,6 @@ export default function AdminCaseDetail() {
       }
     >
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Left: application */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
             <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -206,10 +265,7 @@ export default function AdminCaseDetail() {
                     : "—"
                 }
               />
-              <Info
-                label="Public company"
-                value={startup.isPublicCompany ? "Yes" : "No"}
-              />
+              <Info label="Public company" value={startup.isPublicCompany ? "Yes" : "No"} />
               <Info
                 label="Business license"
                 value={startup.hasBusinessLicense ? "Yes" : "No"}
@@ -265,7 +321,8 @@ export default function AdminCaseDetail() {
                         {log.action.replace("_", " ")}
                       </div>
                       <div className="text-xs text-slate-500">
-                        {log.actor?.fullName || "System"} ·{" "}
+                        {log.actor?.fullName || "System"}
+                        {log.actor?.role ? ` (${log.actor.role})` : ""} ·{" "}
                         {new Date(log.createdAt).toLocaleString()}
                       </div>
                       {log.reason && (
@@ -282,33 +339,66 @@ export default function AdminCaseDetail() {
           </div>
         </div>
 
-        {/* Right: decisions */}
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-            <h3 className="font-semibold text-slate-900 mb-3">Decision panel</h3>
-            <div className="space-y-2">
-              {["pending", "submitted", "under_review", "rejected"].includes(status) && (
-                <>
-                  <DecisionBtn type="approve" onClick={() => setModal("approve")} />
-                  <DecisionBtn type="reject" onClick={() => setModal("reject")} />
-                </>
-              )}
-              {["verified", "designated"].includes(status) && (
-                <>
-                  <DecisionBtn type="suspend" onClick={() => setModal("suspend")} />
+            <h3 className="font-semibold text-slate-900 mb-3">
+              {isAdmin ? "Decision panel" : "Reviewer actions"}
+            </h3>
+
+            {!isAdmin && (
+              <div className="space-y-3">
+                <p className="text-xs text-slate-500">
+                  You can move the case to under review. Final designate / reject is
+                  Admin only.
+                </p>
+                {["pending", "submitted", "under_review"].includes(status) && (
+                  <>
+                    <textarea
+                      value={reviewNotes}
+                      onChange={(e) => setReviewNotes(e.target.value)}
+                      rows={3}
+                      placeholder="Optional review notes…"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                    />
+                    <button
+                      type="button"
+                      disabled={startingReview}
+                      onClick={handleStartReview}
+                      className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-semibold text-white rounded-xl bg-slate-800 hover:bg-slate-900 disabled:opacity-60"
+                    >
+                      <ClipboardList size={16} />
+                      {startingReview ? "Saving…" : "Mark under review"}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {isAdmin && (
+              <div className="space-y-2">
+                {["pending", "submitted", "under_review", "rejected"].includes(status) && (
+                  <>
+                    <DecisionBtn type="approve" onClick={() => setModal("approve")} />
+                    <DecisionBtn type="reject" onClick={() => setModal("reject")} />
+                  </>
+                )}
+                {["verified", "designated"].includes(status) && (
+                  <>
+                    <DecisionBtn type="suspend" onClick={() => setModal("suspend")} />
+                    <DecisionBtn type="revoke" onClick={() => setModal("revoke")} />
+                  </>
+                )}
+                {status === "renewal_due" && (
+                  <DecisionBtn
+                    type="approve-renewal"
+                    onClick={() => setModal("approve-renewal")}
+                  />
+                )}
+                {status === "suspended" && (
                   <DecisionBtn type="revoke" onClick={() => setModal("revoke")} />
-                </>
-              )}
-              {status === "renewal_due" && (
-                <DecisionBtn
-                  type="approve-renewal"
-                  onClick={() => setModal("approve-renewal")}
-                />
-              )}
-              {status === "suspended" && (
-                <DecisionBtn type="revoke" onClick={() => setModal("revoke")} />
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
 
           {certificate && (
@@ -364,64 +454,25 @@ export default function AdminCaseDetail() {
       >
         {modal && DECISIONS[modal].needsReason && (
           <div className="mb-4">
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Reason *
-            </label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Reason *</label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-              placeholder="Required for this decision"
+              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
             />
           </div>
         )}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">
-            Internal notes
-          </label>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
-            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-            placeholder="Optional notes for audit log"
+            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
           />
         </div>
       </Modal>
     </AppShell>
-  );
-}
-
-function Info({ label, value }) {
-  return (
-    <div>
-      <div className="text-xs text-slate-400">{label}</div>
-      <div className="text-slate-800 font-medium">{value}</div>
-    </div>
-  );
-}
-
-function Block({ title, body }) {
-  return (
-    <div>
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">
-        {title}
-      </div>
-      <p className="text-sm text-slate-700 whitespace-pre-wrap">{body || "—"}</p>
-    </div>
-  );
-}
-
-function DecisionBtn({ type, onClick }) {
-  const cfg = DECISIONS[type];
-  const Icon = cfg.icon;
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-xl text-white ${cfg.color}`}
-    >
-      <Icon size={16} /> {cfg.label}
-    </button>
   );
 }

@@ -4,6 +4,16 @@ const AccessRequest = require('../models/AccessRequest');
 const Document = require('../models/Document');
 const cloudinary = require('../config/cloudinary');
 
+const STAFF_ROLES = ['admin', 'reviewer'];
+const ASSIGNABLE_ROLES = [
+  'founder',
+  'investor',
+  'citizen',
+  'ecosystem_builder',
+  'reviewer',
+  'admin',
+];
+
 // ====================== ADMIN: GET ALL USERS ======================
 exports.getAllUsers = async (req, res) => {
   try {
@@ -36,6 +46,9 @@ exports.getAllUsers = async (req, res) => {
       founder: 0,
       investor: 0,
       admin: 0,
+      citizen: 0,
+      ecosystem_builder: 0,
+      reviewer: 0,
       total: 0,
     };
 
@@ -45,8 +58,7 @@ exports.getAllUsers = async (req, res) => {
       }
     });
 
-    const totalAll = await User.countDocuments();
-    roleCounts.total = totalAll;
+    roleCounts.total = await User.countDocuments();
 
     res.status(200).json({
       success: true,
@@ -71,12 +83,67 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
+// ====================== ADMIN: UPDATE USER ROLE (assign staff) ======================
+exports.updateUserRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    if (!role || !ASSIGNABLE_ROLES.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: `Role must be one of: ${ASSIGNABLE_ROLES.join(', ')}`,
+      });
+    }
+
+    if (req.user._id.toString() === id) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot change your own role',
+      });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Protect last admin
+    if (user.role === 'admin' && role !== 'admin') {
+      const adminCount = await User.countDocuments({ role: 'admin' });
+      if (adminCount <= 1) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot demote the last admin account',
+        });
+      }
+    }
+
+    const previousRole = user.role;
+    user.role = role;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Role updated: ${previousRole} → ${role}`,
+      data: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error('Update user role error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 // ====================== ADMIN: DELETE USER ======================
 exports.deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Cannot delete yourself
     if (req.user._id.toString() === id) {
       return res.status(400).json({
         success: false,
@@ -92,7 +159,6 @@ exports.deleteUser = async (req, res) => {
       });
     }
 
-    // Cannot delete the last admin
     if (user.role === 'admin') {
       const adminCount = await User.countDocuments({ role: 'admin' });
       if (adminCount <= 1) {
@@ -103,14 +169,10 @@ exports.deleteUser = async (req, res) => {
       }
     }
 
-    // ----- Clean related data -----
-
-    // If founder: remove startup, documents, access requests for that startup
     if (user.role === 'founder') {
       const startup = await Startup.findOne({ founder: user._id });
 
       if (startup) {
-        // Delete documents from Cloudinary + DB
         const docs = await Document.find({ startup: startup._id });
         for (const doc of docs) {
           try {
@@ -122,21 +184,15 @@ exports.deleteUser = async (req, res) => {
           }
         }
         await Document.deleteMany({ startup: startup._id });
-
-        // Delete access requests for this startup
         await AccessRequest.deleteMany({ startup: startup._id });
-
-        // Delete startup
         await Startup.deleteOne({ _id: startup._id });
       }
     }
 
-    // If investor: remove their access requests
     if (user.role === 'investor') {
       await AccessRequest.deleteMany({ investor: user._id });
     }
 
-    // Delete the user
     await User.deleteOne({ _id: user._id });
 
     res.status(200).json({

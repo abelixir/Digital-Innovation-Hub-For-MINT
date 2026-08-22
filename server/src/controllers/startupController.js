@@ -738,7 +738,51 @@ exports.getAdminStartups = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
+// ====================== REVIEWER/ADMIN: START REVIEW ======================
+exports.startReview = async (req, res) => {
+  try {
+    const startup = await Startup.findById(req.params.id).populate(
+      'founder',
+      'fullName email'
+    );
 
+    if (!startup) {
+      return res.status(404).json({ success: false, message: 'Startup not found' });
+    }
+
+    if (!['pending', 'submitted', 'under_review'].includes(startup.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Only queued applications can be moved to under review',
+      });
+    }
+
+    const notes = (req.body?.notes || '').trim();
+
+    startup.status = 'under_review';
+    if (notes) startup.adminNotes = notes;
+    await startup.save();
+
+    await CaseDecision.create({
+      entityType: 'startup',
+      entityId: startup._id,
+      action: 'request_info',
+      reason: 'Moved to under review by staff',
+      notes: notes || `Review started by ${req.user.role}`,
+      actor: req.user._id,
+      meta: { staffRole: req.user.role },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Application is now under review',
+      data: startup,
+    });
+  } catch (error) {
+    console.error('Start review error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
 // ====================== PUBLIC STATS ======================
 exports.getPublicStats = async (req, res) => {
   try {

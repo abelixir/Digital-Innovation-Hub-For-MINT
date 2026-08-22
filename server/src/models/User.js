@@ -23,7 +23,14 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['founder', 'investor', 'admin', 'citizen', 'ecosystem_builder'],
+      enum: [
+        'founder',
+        'investor',
+        'admin',
+        'citizen',
+        'ecosystem_builder',
+        'reviewer',
+      ],
       default: 'founder',
     },
     companyName: String,

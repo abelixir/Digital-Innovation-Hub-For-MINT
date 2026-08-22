@@ -14,14 +14,26 @@ import {
   Briefcase,
   Shield,
   Trash2,
+  ClipboardList,
 } from "lucide-react";
 
 const ROLE_TABS = [
   { key: "all", label: "All" },
   { key: "founder", label: "Founders" },
   { key: "investor", label: "Investors" },
+  { key: "citizen", label: "Citizens" },
   { key: "ecosystem_builder", label: "Builders" },
+  { key: "reviewer", label: "Reviewers" },
   { key: "admin", label: "Admins" },
+];
+
+const ASSIGNABLE = [
+  "founder",
+  "investor",
+  "citizen",
+  "ecosystem_builder",
+  "reviewer",
+  "admin",
 ];
 
 export default function AdminUsers() {
@@ -33,7 +45,9 @@ export default function AdminUsers() {
     founder: 0,
     investor: 0,
     admin: 0,
+    citizen: 0,
     ecosystem_builder: 0,
+    reviewer: 0,
   });
   const [loading, setLoading] = useState(true);
   const [listLoading, setListLoading] = useState(false);
@@ -41,6 +55,9 @@ export default function AdminUsers() {
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [roleTarget, setRoleTarget] = useState(null);
+  const [newRole, setNewRole] = useState("reviewer");
+  const [savingRole, setSavingRole] = useState(false);
 
   const fetchUsers = async (selectedRole = role, q = search) => {
     setListLoading(true);
@@ -86,6 +103,25 @@ export default function AdminUsers() {
     }
   };
 
+  const confirmRoleChange = async () => {
+    if (!roleTarget) return;
+    setSavingRole(true);
+    try {
+      const id = roleTarget.id || roleTarget._id;
+      await apiRequest(`/users/${id}/role`, {
+        method: "PATCH",
+        body: { role: newRole },
+      });
+      toast(`Role set to ${newRole}`, "success");
+      setRoleTarget(null);
+      await fetchUsers(role, search);
+    } catch (err) {
+      toast(err.message || "Role update failed", "error");
+    } finally {
+      setSavingRole(false);
+    }
+  };
+
   if (loading) {
     return (
       <AppShell title="Users">
@@ -102,7 +138,12 @@ export default function AdminUsers() {
         <StatCard label="Total users" value={roleCounts.total} icon={Users} color="blue" />
         <StatCard label="Founders" value={roleCounts.founder} icon={Building2} color="teal" />
         <StatCard label="Investors" value={roleCounts.investor} icon={Briefcase} color="purple" />
-        <StatCard label="Admins" value={roleCounts.admin} icon={Shield} color="amber" />
+        <StatCard
+          label="Reviewers"
+          value={roleCounts.reviewer || 0}
+          icon={ClipboardList}
+          color="amber"
+        />
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
@@ -161,7 +202,10 @@ export default function AdminUsers() {
               const uid = u.id || u._id;
               const isSelf = uid === user?.id || uid === user?._id;
               return (
-                <div key={uid} className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div
+                  key={uid}
+                  className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3"
+                >
                   <div className="w-10 h-10 rounded-full bg-teal-50 text-teal-800 flex items-center justify-center font-semibold text-sm shrink-0">
                     {(u.fullName || "?").charAt(0).toUpperCase()}
                   </div>
@@ -179,20 +223,74 @@ export default function AdminUsers() {
                     </div>
                     <div className="text-xs text-slate-500 mt-0.5">{u.email}</div>
                   </div>
-                  <button
-                    type="button"
-                    disabled={isSelf}
-                    onClick={() => setDeleteTarget(u)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg disabled:opacity-40"
-                  >
-                    <Trash2 size={13} /> Delete
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={isSelf}
+                      onClick={() => {
+                        setRoleTarget(u);
+                        setNewRole(u.role === "reviewer" ? "citizen" : "reviewer");
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg disabled:opacity-40"
+                    >
+                      <Shield size={13} /> Change role
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSelf}
+                      onClick={() => setDeleteTarget(u)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg disabled:opacity-40"
+                    >
+                      <Trash2 size={13} /> Delete
+                    </button>
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      <Modal
+        open={!!roleTarget}
+        onClose={() => !savingRole && setRoleTarget(null)}
+        title="Assign role"
+        footer={
+          <>
+            <button
+              onClick={() => setRoleTarget(null)}
+              disabled={savingRole}
+              className="px-4 py-2 text-sm rounded-xl border border-slate-200 bg-white"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmRoleChange}
+              disabled={savingRole}
+              className="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-teal-600"
+            >
+              {savingRole ? "Saving…" : "Save role"}
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600 mb-3">
+          Assign role for <strong>{roleTarget?.fullName}</strong> ({roleTarget?.email}).
+          Staff roles (<code>reviewer</code>, <code>admin</code>) are not available via
+          public registration.
+        </p>
+        <select
+          value={newRole}
+          onChange={(e) => setNewRole(e.target.value)}
+          className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm"
+        >
+          {ASSIGNABLE.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </select>
+      </Modal>
 
       <Modal
         open={!!deleteTarget}
@@ -218,8 +316,7 @@ export default function AdminUsers() {
         }
       >
         <p className="text-sm text-slate-600">
-          Delete <strong>{deleteTarget?.fullName}</strong> ({deleteTarget?.role})? Related
-          startup/docs/requests may also be removed.
+          Delete <strong>{deleteTarget?.fullName}</strong> ({deleteTarget?.role})?
         </p>
       </Modal>
     </AppShell>

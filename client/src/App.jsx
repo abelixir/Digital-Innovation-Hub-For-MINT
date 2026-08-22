@@ -8,7 +8,6 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import Directory from "./pages/directory/Directory";
 import StartupDetail from "./pages/directory/StartupDetail";
-import BuildersDirectory from "./pages/directory/BuildersDirectory";
 import FounderDashboard from "./pages/founder/FounderDashboard";
 import InvestorDashboard from "./pages/investor/InvestorDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -22,14 +21,13 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import Opportunities from "./pages/Opportunities";
 import AdminOpportunities from "./pages/admin/AdminOpportunities";
 import InvestorOpportunities from "./pages/investor/InvestorOpportunities";
-import BuilderDashboard from "./pages/builder/BuilderDashboard";
-import BuilderApplication from "./pages/builder/BuilderApplication";
-import AdminBuilders from "./pages/admin/AdminBuilders";
+import ReviewerDashboard from "./pages/reviewer/ReviewerDashboard";
 
 function roleHome(role) {
   if (role === "founder") return "/founder";
   if (role === "investor") return "/investor";
   if (role === "admin") return "/admin";
+  if (role === "reviewer") return "/reviewer";
   if (role === "citizen") return "/citizen";
   if (role === "ecosystem_builder") return "/builder";
   return "/";
@@ -83,16 +81,6 @@ function PublicLayout({ children }) {
   );
 }
 
-function OpportunitiesRedirect() {
-  const { user } = useAuth();
-  if (user?.role === "citizen") return <Navigate to="/citizen/opportunities" replace />;
-  if (user?.role === "investor") return <Navigate to="/investor/browse-opportunities" replace />;
-  if (user?.role === "admin") return <Navigate to="/admin/opportunities" replace />;
-  if (user?.role === "founder") return <Navigate to="/founder" replace />;
-  if (user?.role === "ecosystem_builder") return <Navigate to="/builder" replace />;
-  return <Opportunities />;
-}
-
 function AppRoutes() {
   return (
     <Routes>
@@ -116,46 +104,197 @@ function AppRoutes() {
 
       <Route path="/directory" element={<PublicLayout><Directory /></PublicLayout>} />
       <Route path="/directory/:id" element={<PublicLayout><StartupDetail /></PublicLayout>} />
-      <Route path="/builders" element={<PublicLayout><BuildersDirectory /></PublicLayout>} />
 
-      {/* Founder */}
-      <Route path="/founder" element={<ProtectedRoute roles={["founder"]}><FounderDashboard /></ProtectedRoute>} />
-      <Route path="/founder/create" element={<ProtectedRoute roles={["founder"]}><CreateStartup /></ProtectedRoute>} />
-      <Route path="/founder/data-room" element={<ProtectedRoute roles={["founder"]}><DataRoom /></ProtectedRoute>} />
-      <Route path="/founder/certificate" element={<ProtectedRoute roles={["founder"]}><FounderCertificate /></ProtectedRoute>} />
+      <Route
+        path="/founder"
+        element={
+          <ProtectedRoute roles={["founder"]}>
+            <FounderDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/founder/create"
+        element={
+          <ProtectedRoute roles={["founder"]}>
+            <CreateStartup />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/founder/data-room"
+        element={
+          <ProtectedRoute roles={["founder"]}>
+            <DataRoom />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/founder/certificate"
+        element={
+          <ProtectedRoute roles={["founder"]}>
+            <FounderCertificate />
+          </ProtectedRoute>
+        }
+      />
 
-      {/* Investor */}
-      <Route path="/investor" element={<ProtectedRoute roles={["investor"]}><InvestorDashboard /></ProtectedRoute>} />
-      <Route path="/investor/directory" element={<ProtectedRoute roles={["investor"]}><Directory embedded /></ProtectedRoute>} />
-      <Route path="/investor/directory/:id" element={<ProtectedRoute roles={["investor"]}><StartupDetail embedded /></ProtectedRoute>} />
-      <Route path="/investor/builders" element={<ProtectedRoute roles={["investor"]}><BuildersDirectory embedded /></ProtectedRoute>} />
-      <Route path="/investor/opportunities" element={<ProtectedRoute roles={["investor"]}><InvestorOpportunities /></ProtectedRoute>} />
-      <Route path="/investor/browse-opportunities" element={<ProtectedRoute roles={["investor"]}><Opportunities embedded /></ProtectedRoute>} />
+      <Route
+        path="/investor"
+        element={
+          <ProtectedRoute roles={["investor"]}>
+            <InvestorDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/investor/directory"
+        element={
+          <ProtectedRoute roles={["investor"]}>
+            <Directory embedded />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/investor/directory/:id"
+        element={
+          <ProtectedRoute roles={["investor"]}>
+            <StartupDetail embedded />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/investor/opportunities"
+        element={
+          <ProtectedRoute roles={["investor"]}>
+            <InvestorOpportunities />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/investor/browse-opportunities"
+        element={
+          <ProtectedRoute roles={["investor"]}>
+            <Opportunities embedded />
+          </ProtectedRoute>
+        }
+      />
 
-      {/* Citizen */}
-      <Route path="/citizen" element={<ProtectedRoute roles={["citizen"]}><CitizenDashboard /></ProtectedRoute>} />
-      <Route path="/citizen/directory" element={<ProtectedRoute roles={["citizen"]}><Directory embedded /></ProtectedRoute>} />
-      <Route path="/citizen/directory/:id" element={<ProtectedRoute roles={["citizen"]}><StartupDetail embedded /></ProtectedRoute>} />
-      <Route path="/citizen/builders" element={<ProtectedRoute roles={["citizen"]}><BuildersDirectory embedded /></ProtectedRoute>} />
-      <Route path="/citizen/opportunities" element={<ProtectedRoute roles={["citizen"]}><Opportunities embedded /></ProtectedRoute>} />
-
-      {/* Ecosystem builder */}
-      <Route path="/builder" element={<ProtectedRoute roles={["ecosystem_builder"]}><BuilderDashboard /></ProtectedRoute>} />
-      <Route path="/builder/apply" element={<ProtectedRoute roles={["ecosystem_builder"]}><BuilderApplication /></ProtectedRoute>} />
+      <Route
+        path="/citizen"
+        element={
+          <ProtectedRoute roles={["citizen"]}>
+            <CitizenDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/citizen/directory"
+        element={
+          <ProtectedRoute roles={["citizen"]}>
+            <Directory embedded />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/citizen/directory/:id"
+        element={
+          <ProtectedRoute roles={["citizen"]}>
+            <StartupDetail embedded />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/citizen/opportunities"
+        element={
+          <ProtectedRoute roles={["citizen"]}>
+            <Opportunities embedded />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Admin */}
-      <Route path="/admin" element={<ProtectedRoute roles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
-      <Route path="/admin/cases/:id" element={<ProtectedRoute roles={["admin"]}><AdminCaseDetail /></ProtectedRoute>} />
-      <Route path="/admin/users" element={<ProtectedRoute roles={["admin"]}><AdminUsers /></ProtectedRoute>} />
-      <Route path="/admin/opportunities" element={<ProtectedRoute roles={["admin"]}><AdminOpportunities /></ProtectedRoute>} />
-      <Route path="/admin/builders" element={<ProtectedRoute roles={["admin"]}><AdminBuilders /></ProtectedRoute>} />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute roles={["admin"]}>
+            <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/cases/:id"
+        element={
+          <ProtectedRoute roles={["admin"]}>
+            <AdminCaseDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/users"
+        element={
+          <ProtectedRoute roles={["admin"]}>
+            <AdminUsers />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/opportunities"
+        element={
+          <ProtectedRoute roles={["admin"]}>
+            <AdminOpportunities />
+          </ProtectedRoute>
+        }
+      />
 
-      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-      <Route path="/opportunities" element={<ProtectedRoute><OpportunitiesRedirect /></ProtectedRoute>} />
+      {/* Reviewer staff */}
+      <Route
+        path="/reviewer"
+        element={
+          <ProtectedRoute roles={["reviewer"]}>
+            <ReviewerDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reviewer/cases/:id"
+        element={
+          <ProtectedRoute roles={["reviewer"]}>
+            <AdminCaseDetail />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/opportunities"
+        element={
+          <ProtectedRoute>
+            <OpportunitiesRedirect />
+          </ProtectedRoute>
+        }
+      />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
+}
+
+function OpportunitiesRedirect() {
+  const { user } = useAuth();
+  if (user?.role === "citizen") return <Navigate to="/citizen/opportunities" replace />;
+  if (user?.role === "investor") return <Navigate to="/investor/browse-opportunities" replace />;
+  if (user?.role === "admin") return <Navigate to="/admin/opportunities" replace />;
+  if (user?.role === "founder") return <Navigate to="/founder" replace />;
+  if (user?.role === "reviewer") return <Navigate to="/reviewer" replace />;
+  return <Opportunities />;
 }
 
 export default function App() {
