@@ -15,15 +15,18 @@ import {
   X,
   ClipboardList,
   Megaphone,
+  Network,
+  BarChart3,
 } from "lucide-react";
 import { useState } from "react";
 
 const NAV = {
   admin: [
-    { to: "/admin", label: "Designation Queue", icon: LayoutDashboard, end: true },
+    { to: "/admin/analytics", label: "Analytics", icon: BarChart3, end: true },
+    { to: "/admin", label: "Startups", icon: Building2 },
+    { to: "/admin/builders", label: "Builders", icon: Network },
     { to: "/admin/users", label: "Users", icon: Users },
     { to: "/admin/opportunities", label: "Opportunities", icon: Briefcase },
-    { to: "/admin/builders", label: "Builders", icon: Building2 },
   ],
   reviewer: [
     { to: "/reviewer", label: "Startups", icon: ClipboardList, end: true },
@@ -33,6 +36,7 @@ const NAV = {
   moderator: [
     { to: "/moderator", label: "Manage posts", icon: Megaphone, end: true },
     { to: "/moderator/startups", label: "Startups", icon: Building2 },
+    { to: "/moderator/builders", label: "Builders", icon: Network },
     { to: "/moderator/browse", label: "Opportunities feed", icon: Briefcase },
   ],
   founder: [
@@ -55,6 +59,8 @@ const NAV = {
   ],
   ecosystem_builder: [
     { to: "/builder", label: "Overview", icon: LayoutDashboard, end: true },
+    { to: "/builder/apply", label: "Application", icon: FileText },
+    { to: "/builder/opportunities", label: "Opportunities", icon: Megaphone },
   ],
 };
 

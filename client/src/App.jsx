@@ -13,6 +13,7 @@ import InvestorDashboard from "./pages/investor/InvestorDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminCaseDetail from "./pages/admin/AdminCaseDetail";
 import AdminBuilders from "./pages/admin/AdminBuilders";
+import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import CreateStartup from "./pages/founder/CreateStartup";
 import DataRoom from "./pages/founder/DataRoom";
 import FounderCertificate from "./pages/founder/FounderCertificate";
@@ -25,11 +26,15 @@ import InvestorOpportunities from "./pages/investor/InvestorOpportunities";
 import ReviewerDashboard from "./pages/reviewer/ReviewerDashboard";
 import ReviewerBuilders from "./pages/reviewer/ReviewerBuilders";
 import ModeratorStartups from "./pages/moderator/ModeratorStartups";
+import ModeratorBuilders from "./pages/moderator/ModeratorBuilders";
+import BuildersDirectory from "./pages/builder/BuildersDirectory";
+import BuilderDashboard from "./pages/builder/BuilderDashboard";
+import BuilderApplication from "./pages/builder/BuilderApplication";
 
 function roleHome(role) {
   if (role === "founder") return "/founder";
   if (role === "investor") return "/investor";
-  if (role === "admin") return "/admin";
+  if (role === "admin") return "/admin/analytics";
   if (role === "reviewer") return "/reviewer";
   if (role === "moderator") return "/moderator";
   if (role === "citizen") return "/citizen";
@@ -109,6 +114,16 @@ function AppRoutes() {
       <Route path="/directory" element={<PublicLayout><Directory /></PublicLayout>} />
       <Route path="/directory/:id" element={<PublicLayout><StartupDetail /></PublicLayout>} />
 
+      {/* Public ecosystem builders list — URL /builders, file in pages/builder/ */}
+      <Route
+        path="/builders"
+        element={
+          <PublicLayout>
+            <BuildersDirectory />
+          </PublicLayout>
+        }
+      />
+
       <Route path="/founder" element={<ProtectedRoute roles={["founder"]}><FounderDashboard /></ProtectedRoute>} />
       <Route path="/founder/create" element={<ProtectedRoute roles={["founder"]}><CreateStartup /></ProtectedRoute>} />
       <Route path="/founder/data-room" element={<ProtectedRoute roles={["founder"]}><DataRoom /></ProtectedRoute>} />
@@ -126,6 +141,7 @@ function AppRoutes() {
       <Route path="/citizen/directory/:id" element={<ProtectedRoute roles={["citizen"]}><StartupDetail embedded /></ProtectedRoute>} />
       <Route path="/citizen/opportunities" element={<ProtectedRoute roles={["citizen"]}><Opportunities embedded /></ProtectedRoute>} />
 
+      <Route path="/admin/analytics" element={<ProtectedRoute roles={["admin"]}><AdminAnalytics /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute roles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
       <Route path="/admin/cases/:id" element={<ProtectedRoute roles={["admin"]}><AdminCaseDetail /></ProtectedRoute>} />
       <Route path="/admin/users" element={<ProtectedRoute roles={["admin"]}><AdminUsers /></ProtectedRoute>} />
@@ -139,8 +155,11 @@ function AppRoutes() {
 
       <Route path="/moderator" element={<ProtectedRoute roles={["moderator"]}><AdminOpportunities /></ProtectedRoute>} />
       <Route path="/moderator/startups" element={<ProtectedRoute roles={["moderator"]}><ModeratorStartups /></ProtectedRoute>} />
+      <Route path="/moderator/builders" element={<ProtectedRoute roles={["moderator"]}><ModeratorBuilders /></ProtectedRoute>} />
       <Route path="/moderator/browse" element={<ProtectedRoute roles={["moderator"]}><Opportunities embedded /></ProtectedRoute>} />
 
+      <Route path="/builder" element={<ProtectedRoute roles={["ecosystem_builder"]}><BuilderDashboard /></ProtectedRoute>} />
+      <Route path="/builder/apply" element={<ProtectedRoute roles={["ecosystem_builder"]}><BuilderApplication /></ProtectedRoute>} />
       <Route path="/builder/opportunities" element={<ProtectedRoute roles={["ecosystem_builder"]}><Opportunities embedded /></ProtectedRoute>} />
 
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

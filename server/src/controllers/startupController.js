@@ -782,6 +782,7 @@ exports.getAdminStats = async (req, res) => {
     const now = new Date();
     const User = require('../models/User');
     const Opportunity = require('../models/Opportunity');
+    const EcosystemBuilder = require('../models/EcosystemBuilder');
 
     const [
       total,
@@ -792,9 +793,15 @@ exports.getAdminStats = async (req, res) => {
       overdue,
       bySector,
       byStatus,
+      byCountry,
       roleCounts,
       recentMonths,
       oppCounts,
+      builderTotal,
+      builderDesignated,
+      builderPending,
+      builderByType,
+      builderByStatus,
     ] = await Promise.all([
       Startup.countDocuments(),
       Startup.countDocuments({ status: { $in: PUBLIC_STATUSES } }),
@@ -814,6 +821,11 @@ exports.getAdminStats = async (req, res) => {
       Startup.aggregate([
         { $group: { _id: '$status', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
+      ]),
+      Startup.aggregate([
+        { $group: { _id: '$country', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 12 },
       ]),
       User.aggregate([{ $group: { _id: '$role', count: { $sum: 1 } } }]),
       Startup.aggregate([
@@ -836,6 +848,18 @@ exports.getAdminStats = async (req, res) => {
         { $sort: { '_id.y': 1, '_id.m': 1 } },
       ]),
       Opportunity.aggregate([
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
+      EcosystemBuilder.countDocuments(),
+      EcosystemBuilder.countDocuments({ status: 'designated' }),
+      EcosystemBuilder.countDocuments({
+        status: { $in: ['pending', 'submitted', 'under_review'] },
+      }),
+      EcosystemBuilder.aggregate([
+        { $group: { _id: '$builderType', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      EcosystemBuilder.aggregate([
         { $group: { _id: '$status', count: { $sum: 1 } } },
       ]),
     ]);
@@ -862,26 +886,6 @@ exports.getAdminStats = async (req, res) => {
       count: row.count,
     }));
 
-    const statusChart = byStatus.map((s) => ({
-      name: (s._id || 'unknown').replace(/_/g, ' '),
-      value: s.count,
-    }));
-
-    const sectorChart = bySector.map((s) => ({
-      name: s._id || 'Other',
-      value: s.count,
-    }));
-
-    const usersByRole = Object.entries(roleMap).map(([name, value]) => ({
-      name: name.replace(/_/g, ' '),
-      value,
-    }));
-
-    const opportunityByStatus = oppCounts.map((o) => ({
-      name: o._id || 'unknown',
-      value: o.count,
-    }));
-
     res.status(200).json({
       success: true,
       data: {
@@ -894,6 +898,9 @@ exports.getAdminStats = async (req, res) => {
         totalInvestors: roleMap.investor,
         totalFounders: roleMap.founder,
         totalCitizens: roleMap.citizen,
+        totalBuilders: builderTotal,
+        designatedBuilders: builderDesignated,
+        pendingBuilders: builderPending,
         totalUsers:
           roleMap.founder +
           roleMap.investor +
@@ -903,11 +910,35 @@ exports.getAdminStats = async (req, res) => {
           roleMap.moderator +
           roleMap.ecosystem_builder,
         charts: {
-          statusChart,
-          sectorChart,
-          usersByRole,
+          statusChart: byStatus.map((s) => ({
+            name: (s._id || 'unknown').replace(/_/g, ' '),
+            value: s.count,
+          })),
+          sectorChart: bySector.map((s) => ({
+            name: s._id || 'Other',
+            value: s.count,
+          })),
+          countryChart: byCountry.map((s) => ({
+            name: s._id || 'Unknown',
+            value: s.count,
+          })),
+          usersByRole: Object.entries(roleMap).map(([name, value]) => ({
+            name: name.replace(/_/g, ' '),
+            value,
+          })),
           applicationsOverTime,
-          opportunityByStatus,
+          opportunityByStatus: oppCounts.map((o) => ({
+            name: o._id || 'unknown',
+            value: o.count,
+          })),
+          builderByType: builderByType.map((b) => ({
+            name: (b._id || 'other').replace(/_/g, ' '),
+            value: b.count,
+          })),
+          builderByStatus: builderByStatus.map((b) => ({
+            name: (b._id || 'unknown').replace(/_/g, ' '),
+            value: b.count,
+          })),
         },
       },
     });

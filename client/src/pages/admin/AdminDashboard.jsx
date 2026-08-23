@@ -6,7 +6,6 @@ import { apiRequest } from "../../utils/api";
 import AppShell from "../../components/AppShell";
 import StatCard from "../../components/StatCard";
 import StatusBadge from "../../components/StatusBadge";
-import AnalyticsCharts from "../../components/AnalyticsCharts";
 import { SECTORS } from "../../data/mockData";
 import {
   Building2,
@@ -92,7 +91,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <AppShell title="Admin" subtitle="Loading…">
+      <AppShell title="Startups" subtitle="Loading…">
         <div className="min-h-[40vh] flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
         </div>
@@ -102,8 +101,8 @@ export default function AdminDashboard() {
 
   return (
     <AppShell
-      title="Designation Queue"
-      subtitle={`MinT oversight · ${user?.fullName || "Admin"}`}
+      title="Startups"
+      subtitle={`Designation cases · ${user?.fullName || "Admin"}`}
       actions={
         <div className="flex gap-2">
           <Link
@@ -128,8 +127,6 @@ export default function AdminDashboard() {
         <StatCard label="Investors" value={stats?.totalInvestors ?? 0} icon={Users} color="purple" />
         <StatCard label="Total startups" value={stats?.totalStartups ?? 0} icon={Building2} color="blue" />
       </div>
-
-      <AnalyticsCharts charts={stats?.charts} />
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-4 sm:px-6 pt-3 border-b border-slate-100 flex flex-wrap gap-1">
@@ -197,6 +194,7 @@ export default function AdminDashboard() {
                 <tr>
                   <th className="px-4 sm:px-6 py-3 font-semibold">Startup</th>
                   <th className="px-4 py-3 font-semibold">Sector</th>
+                  <th className="px-4 py-3 font-semibold">Country</th>
                   <th className="px-4 py-3 font-semibold">Submitted</th>
                   <th className="px-4 py-3 font-semibold">Due</th>
                   <th className="px-4 py-3 font-semibold">Status</th>
@@ -214,6 +212,7 @@ export default function AdminDashboard() {
                       </div>
                     </td>
                     <td className="px-4 py-4 text-slate-600">{item.sector}</td>
+                    <td className="px-4 py-4 text-slate-600">{item.country || "—"}</td>
                     <td className="px-4 py-4 text-slate-600">
                       {new Date(item.submittedAt || item.createdAt).toLocaleDateString()}
                     </td>

@@ -12,6 +12,10 @@ const ecosystemBuilderSchema = new mongoose.Schema(
       required: [true, 'Organization name is required'],
       trim: true,
     },
+    logo: {
+      type: String,
+      default: 'Building2',
+    },
     builderType: {
       type: String,
       enum: [
@@ -29,6 +33,12 @@ const ecosystemBuilderSchema = new mongoose.Schema(
     description: {
       type: String,
       default: '',
+    },
+    country: {
+      type: String,
+      required: [true, 'Country is required'],
+      trim: true,
+      default: 'Ethiopia',
     },
     location: {
       type: String,
@@ -68,7 +78,7 @@ const ecosystemBuilderSchema = new mongoose.Schema(
     submittedAt: { type: Date, default: null },
     reviewDueAt: { type: Date, default: null },
     designatedAt: { type: Date, default: null },
-    designationExpiresAt: { type: Date, default: null }, // 5 years
+    designationExpiresAt: { type: Date, default: null },
     certificateNumber: { type: String, default: null },
     rejectionReason: { type: String, default: '' },
     suspensionReason: { type: String, default: '' },
@@ -85,5 +95,6 @@ const ecosystemBuilderSchema = new mongoose.Schema(
 
 ecosystemBuilderSchema.index({ status: 1, createdAt: -1 });
 ecosystemBuilderSchema.index({ ownerUser: 1 });
+ecosystemBuilderSchema.index({ country: 1 });
 
 module.exports = mongoose.model('EcosystemBuilder', ecosystemBuilderSchema);

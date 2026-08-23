@@ -3,15 +3,17 @@ import { useNavigate, Link } from "react-router-dom";
 import { apiRequest } from "../../utils/api";
 import { useToast } from "../../context/ToastContext";
 import AppShell from "../../components/AppShell";
-import { SECTORS, STAGES, LOCATIONS } from "../../data/mockData";
+import IconPicker from "../../components/IconPicker";
+import { SECTORS, STAGES, LOCATIONS, COUNTRIES } from "../../data/mockData";
 import { Loader2, ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
 
 const emptyForm = {
   companyName: "",
-  logo: "🚀",
+  logo: "Rocket",
   oneLineDescription: "",
   sector: "FinTech",
   fundingStage: "Idea",
+  country: "Ethiopia",
   location: "Addis Ababa",
   teamSize: 1,
   foundedYear: new Date().getFullYear(),
@@ -45,10 +47,11 @@ export default function CreateStartup() {
           const d = res.data;
           setForm({
             companyName: d.companyName || "",
-            logo: d.logo || "🚀",
+            logo: d.logo || "Rocket",
             oneLineDescription: d.oneLineDescription || "",
             sector: d.sector || "FinTech",
             fundingStage: d.fundingStage || "Idea",
+            country: d.country || "Ethiopia",
             location: d.location || "Addis Ababa",
             teamSize: d.teamSize || 1,
             foundedYear: d.foundedYear || new Date().getFullYear(),
@@ -99,6 +102,10 @@ export default function CreateStartup() {
             (new Date() - new Date(form.dateEstablished)) / (365.25 * 86400000) <= 5),
         label: "If licensed, age ≤ 5 years",
       },
+      {
+        ok: !!(form.country && form.country.trim()),
+        label: "Country selected",
+      },
     ];
   }, [form]);
 
@@ -113,6 +120,10 @@ export default function CreateStartup() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    if (!form.country) {
+      setError("Country is required");
+      return;
+    }
     setLoading(true);
     try {
       const payload = {
@@ -156,7 +167,7 @@ export default function CreateStartup() {
   return (
     <AppShell
       title={isEdit ? "Edit designation application" : "Startup designation application"}
-      subtitle="Aligned with Proclamation 1396/2025"
+      subtitle="Aligned with Proclamation 1396/2025 · foreign startups may apply"
       actions={
         <Link
           to="/founder"
@@ -172,21 +183,38 @@ export default function CreateStartup() {
           className="lg:col-span-2 space-y-6 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm"
         >
           <Section title="Company identity">
-            <div className="grid sm:grid-cols-4 gap-4">
-              <Field className="sm:col-span-3" label="Company name *" name="companyName" value={form.companyName} onChange={handleChange} required />
-              <Field label="Logo" name="logo" value={form.logo} onChange={handleChange} />
+            <div className="grid sm:grid-cols-1 gap-4">
+              <Field
+                label="Company name *"
+                name="companyName"
+                value={form.companyName}
+                onChange={handleChange}
+                required
+              />
+              <IconPicker
+                value={form.logo}
+                onChange={(name) => setForm((p) => ({ ...p, logo: name }))}
+              />
             </div>
-            <Field label="One-line description *" name="oneLineDescription" value={form.oneLineDescription} onChange={handleChange} required maxLength={200} />
+            <Field
+              label="One-line description *"
+              name="oneLineDescription"
+              value={form.oneLineDescription}
+              onChange={handleChange}
+              required
+              maxLength={200}
+            />
             <div className="grid sm:grid-cols-3 gap-4">
               <Select label="Sector *" name="sector" value={form.sector} onChange={handleChange} options={SECTORS} />
               <Select label="Funding stage *" name="fundingStage" value={form.fundingStage} onChange={handleChange} options={STAGES} />
-              <Select label="Location *" name="location" value={form.location} onChange={handleChange} options={LOCATIONS} />
+              <Select label="Country *" name="country" value={form.country} onChange={handleChange} options={COUNTRIES} />
             </div>
             <div className="grid sm:grid-cols-3 gap-4">
+              <Select label="City / location *" name="location" value={form.location} onChange={handleChange} options={LOCATIONS} />
               <Field type="number" label="Team size" name="teamSize" value={form.teamSize} onChange={handleChange} min={1} />
               <Field type="number" label="Founded year" name="foundedYear" value={form.foundedYear} onChange={handleChange} />
-              <Field label="Website" name="website" value={form.website} onChange={handleChange} placeholder="https://" />
             </div>
+            <Field label="Website" name="website" value={form.website} onChange={handleChange} placeholder="https://" />
           </Section>
 
           <Section title="Problem & solution">
@@ -280,7 +308,7 @@ export default function CreateStartup() {
             ))}
           </ul>
           <p className="text-xs text-slate-400 mt-4">
-            Server also validates these rules. Submission is blocked if required checks fail.
+            Server also validates these rules. Foreign-country startups may apply under the proclamation.
           </p>
         </div>
       </div>

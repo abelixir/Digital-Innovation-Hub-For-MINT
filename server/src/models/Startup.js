@@ -8,7 +8,6 @@ const startupSchema = new mongoose.Schema(
       required: true,
     },
 
-    // ====================== BASIC PROFILE ======================
     companyName: {
       type: String,
       required: [true, 'Company name is required'],
@@ -16,7 +15,7 @@ const startupSchema = new mongoose.Schema(
     },
     logo: {
       type: String,
-      default: '🚀',
+      default: 'Rocket',
     },
     oneLineDescription: {
       type: String,
@@ -41,6 +40,12 @@ const startupSchema = new mongoose.Schema(
       enum: ['Idea', 'Pre-seed', 'Seed', 'Series A'],
       required: true,
     },
+    country: {
+      type: String,
+      required: [true, 'Country is required'],
+      trim: true,
+      default: 'Ethiopia',
+    },
     location: {
       type: String,
       required: true,
@@ -64,7 +69,6 @@ const startupSchema = new mongoose.Schema(
       required: [true, 'Solution statement is required'],
     },
 
-    // ====================== DESIGNATION ELIGIBILITY ======================
     founderOwnershipPercent: {
       type: Number,
       min: 0,
@@ -97,8 +101,6 @@ const startupSchema = new mongoose.Schema(
       default: '',
     },
 
-    // ====================== STATUS ======================
-    // Keep old values for compatibility + add advanced values
     status: {
       type: String,
       enum: [
@@ -117,7 +119,6 @@ const startupSchema = new mongoose.Schema(
       default: 'pending',
     },
 
-    // ====================== TIMELINE ======================
     submittedAt: { type: Date, default: null },
     reviewDueAt: { type: Date, default: null },
     verifiedAt: { type: Date, default: null },
@@ -125,7 +126,6 @@ const startupSchema = new mongoose.Schema(
     designationExpiresAt: { type: Date, default: null },
     designationMaxUntil: { type: Date, default: null },
 
-    // ====================== DECISION DETAILS ======================
     certificateNumber: { type: String, default: null },
     rejectionReason: { type: String, default: '' },
     suspensionReason: { type: String, default: '' },
@@ -148,5 +148,6 @@ const startupSchema = new mongoose.Schema(
 startupSchema.index({ status: 1, createdAt: -1 });
 startupSchema.index({ sector: 1, status: 1 });
 startupSchema.index({ founder: 1 });
+startupSchema.index({ country: 1 });
 
 module.exports = mongoose.model('Startup', startupSchema);

@@ -40,15 +40,21 @@ export default function AnalyticsCharts({ charts }) {
   const {
     statusChart = [],
     sectorChart = [],
+    countryChart = [],
     usersByRole = [],
     applicationsOverTime = [],
     opportunityByStatus = [],
+    builderByType = [],
+    builderByStatus = [],
   } = charts;
 
   const roleData = usersByRole.filter((d) => d.value > 0);
   const statusData = statusChart.filter((d) => d.value > 0);
   const sectorData = sectorChart.filter((d) => d.value > 0);
+  const countryData = countryChart.filter((d) => d.value > 0);
   const oppData = opportunityByStatus.filter((d) => d.value > 0);
+  const builderTypeData = builderByType.filter((d) => d.value > 0);
+  const builderStatusData = builderByStatus.filter((d) => d.value > 0);
 
   return (
     <div className="grid lg:grid-cols-2 gap-4 mb-8">
@@ -59,13 +65,7 @@ export default function AnalyticsCharts({ charts }) {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={roleData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis
-                dataKey="name"
-                tick={{ fontSize: 11 }}
-                interval={0}
-                angle={-25}
-                textAnchor="end"
-              />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-25} textAnchor="end" />
               <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
               <Tooltip />
               <Bar dataKey="value" name="Users" fill="#0d9488" radius={[6, 6, 0, 0]} />
@@ -80,15 +80,7 @@ export default function AnalyticsCharts({ charts }) {
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie
-                data={statusData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={90}
-                label={({ name, value }) => `${name}: ${value}`}
-              >
+              <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, value }) => `${name}: ${value}`}>
                 {statusData.map((_, i) => (
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
                 ))}
@@ -116,6 +108,22 @@ export default function AnalyticsCharts({ charts }) {
         )}
       </ChartCard>
 
+      <ChartCard title="Startups by country">
+        {countryData.length === 0 ? (
+          <p className="text-sm text-slate-500 text-center pt-20">No data</p>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={countryData} margin={{ bottom: 40 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-25} textAnchor="end" />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+              <Tooltip />
+              <Bar dataKey="value" name="Startups" fill="#f59e0b" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </ChartCard>
+
       <ChartCard title="Applications (last months)">
         {applicationsOverTime.length === 0 ? (
           <p className="text-sm text-slate-500 text-center pt-20">No data</p>
@@ -126,15 +134,42 @@ export default function AnalyticsCharts({ charts }) {
               <XAxis dataKey="label" tick={{ fontSize: 11 }} />
               <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
               <Tooltip />
-              <Line
-                type="monotone"
-                dataKey="count"
-                name="Applications"
-                stroke="#0d9488"
-                strokeWidth={2}
-                dot={{ r: 4 }}
-              />
+              <Line type="monotone" dataKey="count" name="Applications" stroke="#0d9488" strokeWidth={2} dot={{ r: 4 }} />
             </LineChart>
+          </ResponsiveContainer>
+        )}
+      </ChartCard>
+
+      <ChartCard title="Ecosystem builders by type">
+        {builderTypeData.length === 0 ? (
+          <p className="text-sm text-slate-500 text-center pt-20">No data</p>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={builderTypeData} margin={{ bottom: 40 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-25} textAnchor="end" />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+              <Tooltip />
+              <Bar dataKey="value" name="Builders" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </ChartCard>
+
+      <ChartCard title="Ecosystem builders by status">
+        {builderStatusData.length === 0 ? (
+          <p className="text-sm text-slate-500 text-center pt-20">No data</p>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={builderStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
+                {builderStatusData.map((_, i) => (
+                  <Cell key={i} fill={COLORS[(i + 3) % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
           </ResponsiveContainer>
         )}
       </ChartCard>
@@ -143,15 +178,7 @@ export default function AnalyticsCharts({ charts }) {
         <ChartCard title="Opportunities by status">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie
-                data={oppData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={90}
-                label
-              >
+              <Pie data={oppData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
                 {oppData.map((_, i) => (
                   <Cell key={i} fill={COLORS[(i + 2) % COLORS.length]} />
                 ))}
