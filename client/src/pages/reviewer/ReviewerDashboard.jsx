@@ -16,6 +16,15 @@ import {
   ClipboardList,
 } from "lucide-react";
 
+const TABS = [
+  { key: "pending", label: "Queue" },
+  { key: "under_review", label: "Under review" },
+  { key: "verified", label: "Designated" },
+  { key: "rejected", label: "Rejected" },
+  { key: "suspended", label: "Suspended" },
+  { key: "all", label: "All" },
+];
+
 export default function ReviewerDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -24,6 +33,7 @@ export default function ReviewerDashboard() {
   const [loading, setLoading] = useState(true);
   const [listLoading, setListLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [tab, setTab] = useState("pending");
 
   const fetchStats = async () => {
     try {
@@ -34,20 +44,16 @@ export default function ReviewerDashboard() {
     }
   };
 
-  const fetchStartups = async (q = search) => {
+  const fetchStartups = async (status = tab, q = search) => {
     setListLoading(true);
     try {
       const params = new URLSearchParams();
-      params.set("status", "pending");
+      if (status && status !== "all") params.set("status", status);
       if (q) params.set("search", q);
       const res = await apiRequest(`/startups/admin?${params.toString()}`);
-      let rows = res.data || [];
-      rows = rows.filter((s) =>
-        ["pending", "submitted", "under_review"].includes(s.status)
-      );
-      setStartups(rows);
+      setStartups(res.data || []);
     } catch (err) {
-      toast(err.message || "Failed to load queue", "error");
+      toast(err.message || "Failed to load list", "error");
       setStartups([]);
     } finally {
       setListLoading(false);
@@ -57,12 +63,17 @@ export default function ReviewerDashboard() {
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await Promise.all([fetchStats(), fetchStartups("")]);
+      await Promise.all([fetchStats(), fetchStartups("pending", "")]);
       setLoading(false);
     };
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!loading) fetchStartups(tab, search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
 
   const isOverdue = (s) => {
     if (!s.reviewDueAt) return false;
@@ -82,12 +93,13 @@ export default function ReviewerDashboard() {
 
   return (
     <AppShell
-      title="Review queue"
+      title="Review workspace"
       subtitle={`Staff reviewer · ${user?.fullName || ""}`}
     >
       <div className="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-100 text-sm text-amber-900">
-        <strong>Your role:</strong> evaluate applications (committee-style). Final
-        designation is done by Admin only.
+        <strong>Your role:</strong> review and comment on applications. You can see all
+        startups and builders. Final designate / reject / suspend is{" "}
+        <strong>Admin only</strong>.
       </div>
 
       <div className="grid sm:grid-cols-3 gap-4 mb-8">
@@ -102,10 +114,27 @@ export default function ReviewerDashboard() {
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-4 sm:px-6 pt-3 border-b border-slate-100 flex flex-wrap gap-1">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={`px-3 py-2 text-sm font-medium rounded-t-lg ${
+                tab === t.key
+                  ? "text-teal-800 border-b-2 border-teal-600 bg-teal-50/60"
+                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            fetchStartups(search);
+            fetchStartups(tab, search);
           }}
           className="px-4 sm:px-6 py-4 border-b border-slate-100 flex gap-3"
         >
@@ -133,7 +162,7 @@ export default function ReviewerDashboard() {
         ) : startups.length === 0 ? (
           <div className="py-16 text-center">
             <ClipboardList className="mx-auto text-slate-300 mb-3" size={28} />
-            <p className="text-sm font-medium text-slate-700">No applications in queue</p>
+            <p className="text-sm font-medium text-slate-700">No startups in this filter</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

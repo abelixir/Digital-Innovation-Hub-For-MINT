@@ -51,31 +51,13 @@ export default function AdminDashboard() {
     try {
       const params = new URLSearchParams();
       if (status && status !== "all") {
-        if (status === "pending") {
-          // backend accepts explicit status; for queue we fetch admin list and filter client-side too
-          params.set("status", "pending");
-        } else if (status === "verified") {
-          params.set("status", "verified");
-        } else {
-          params.set("status", status);
-        }
+        params.set("status", status);
       }
       if (q) params.set("search", q);
       if (sec) params.set("sector", sec);
 
       const res = await apiRequest(`/startups/admin?${params.toString()}`);
-      let rows = res.data || [];
-
-      if (status === "pending") {
-        rows = rows.filter((s) =>
-          ["pending", "submitted", "under_review"].includes(s.status)
-        );
-      }
-      if (status === "verified") {
-        rows = rows.filter((s) => ["verified", "designated"].includes(s.status));
-      }
-
-      setStartups(rows);
+      setStartups(res.data || []);
     } catch (err) {
       toast(err.message || "Failed to load startups", "error");
       setStartups([]);

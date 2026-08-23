@@ -32,7 +32,6 @@ exports.createStartup = async (req, res) => {
       });
     }
 
-    // strictEligibility comes from request body (optional)
     const strict = req.body?.strictEligibility === true;
     const eligibility = evaluateStartupEligibility(req.body, { strict });
 
@@ -49,7 +48,6 @@ exports.createStartup = async (req, res) => {
     const now = new Date();
     const reviewDueAt = addWorkingDays(now, 30);
 
-    // Do not store helper flag in DB
     const payload = { ...req.body };
     delete payload.strictEligibility;
 
@@ -121,7 +119,6 @@ exports.updateMyStartup = async (req, res) => {
 
     Object.assign(startup, payload);
 
-    // strictEligibility comes from request body (optional)
     const strict = req.body?.strictEligibility === true;
     const eligibility = evaluateStartupEligibility(startup, { strict });
 
@@ -192,7 +189,7 @@ exports.getStartup = async (req, res) => {
   }
 };
 
-// ====================== ADMIN: CASE DETAIL ======================
+// ====================== ADMIN / REVIEWER: CASE DETAIL ======================
 exports.getStartupCase = async (req, res) => {
   try {
     const startup = await Startup.findById(req.params.id).populate(
@@ -237,7 +234,7 @@ exports.getStartupCase = async (req, res) => {
   }
 };
 
-// ====================== ADMIN: GET PENDING STARTUPS ======================
+// ====================== ADMIN / REVIEWER: PENDING QUEUE ======================
 exports.getPendingStartups = async (req, res) => {
   try {
     const startups = await Startup.find({
@@ -253,6 +250,48 @@ exports.getPendingStartups = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// ====================== REVIEWER / ADMIN: START REVIEW ======================
+exports.startReview = async (req, res) => {
+  try {
+    const startup = await Startup.findById(req.params.id);
+    if (!startup) {
+      return res.status(404).json({ success: false, message: 'Startup not found' });
+    }
+
+    if (!['pending', 'submitted', 'under_review'].includes(startup.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Only pending or submitted applications can be marked under review',
+      });
+    }
+
+    const notes = (req.body?.notes || '').trim();
+
+    startup.status = 'under_review';
+    startup.reviewedBy = req.user._id;
+    if (notes) startup.adminNotes = notes;
+    await startup.save();
+
+    await CaseDecision.create({
+      entityType: 'startup',
+      entityId: startup._id,
+      action: 'start_review',
+      reason: 'Case marked under review',
+      notes,
+      actor: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Startup marked under review',
+      data: startup,
+    });
+  } catch (error) {
+    console.error('Start review error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
   }
 };
 
@@ -367,11 +406,13 @@ exports.rejectStartup = async (req, res) => {
     const founderEmail = startup.founder?.email;
     const founderName = startup.founder?.fullName || 'Founder';
     const companyName = startup.companyName;
-    const reason = req.body?.reason || 'Did not meet designation criteria';
+    const reason = (req.body?.reason || '').trim() || 'Did not meet designation criteria';
     const notes = req.body?.notes || '';
 
     startup.status = 'rejected';
     startup.rejectionReason = reason;
+    startup.suspensionReason = '';
+    startup.revocationReason = '';
     startup.reviewedBy = req.user._id;
     startup.adminNotes = notes;
     await startup.save();
@@ -394,8 +435,8 @@ exports.rejectStartup = async (req, res) => {
             <h2 style="color: #64748b;">Startup Designation Update</h2>
             <p>Hello ${founderName},</p>
             <p>
-              After review, <strong>${companyName}</strong> was not approved for
-              MinT designation at this time.
+              After review, <strong>${companyName}</strong> was <strong>not approved</strong>
+              for MinT designation at this time.
             </p>
             <p><strong>Reason:</strong> ${reason}</p>
             <p style="color: #666; font-size: 13px; margin-top: 30px;">
@@ -420,16 +461,23 @@ exports.rejectStartup = async (req, res) => {
 // ====================== ADMIN: SUSPEND ======================
 exports.suspendStartup = async (req, res) => {
   try {
-    const startup = await Startup.findById(req.params.id);
+    const startup = await Startup.findById(req.params.id).populate(
+      'founder',
+      'fullName email'
+    );
     if (!startup) {
       return res.status(404).json({ success: false, message: 'Startup not found' });
     }
 
-    const reason = req.body?.reason || 'Suspended by MinT admin';
+    const reason = (req.body?.reason || '').trim() || 'Suspended by MinT admin';
     const notes = req.body?.notes || '';
+    const founderEmail = startup.founder?.email;
+    const founderName = startup.founder?.fullName || 'Founder';
+    const companyName = startup.companyName;
 
     startup.status = 'suspended';
     startup.suspensionReason = reason;
+    startup.rejectionReason = '';
     startup.reviewedBy = req.user._id;
     startup.adminNotes = notes;
     await startup.save();
@@ -448,6 +496,27 @@ exports.suspendStartup = async (req, res) => {
       actor: req.user._id,
     });
 
+    if (founderEmail) {
+      await sendEmail({
+        to: founderEmail,
+        subject: `Designation Suspended – ${companyName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #b45309;">Designation Suspended</h2>
+            <p>Hello ${founderName},</p>
+            <p>
+              The MinT designation for <strong>${companyName}</strong> has been
+              <strong>suspended</strong>.
+            </p>
+            <p><strong>Reason:</strong> ${reason}</p>
+            <p style="color: #666; font-size: 13px; margin-top: 30px;">
+              Digital Innovation Hub · Ministry of Innovation and Technology
+            </p>
+          </div>
+        `,
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: 'Startup suspended',
@@ -462,13 +531,19 @@ exports.suspendStartup = async (req, res) => {
 // ====================== ADMIN: REVOKE ======================
 exports.revokeStartup = async (req, res) => {
   try {
-    const startup = await Startup.findById(req.params.id);
+    const startup = await Startup.findById(req.params.id).populate(
+      'founder',
+      'fullName email'
+    );
     if (!startup) {
       return res.status(404).json({ success: false, message: 'Startup not found' });
     }
 
-    const reason = req.body?.reason || 'Designation revoked by MinT admin';
+    const reason = (req.body?.reason || '').trim() || 'Designation revoked by MinT admin';
     const notes = req.body?.notes || '';
+    const founderEmail = startup.founder?.email;
+    const founderName = startup.founder?.fullName || 'Founder';
+    const companyName = startup.companyName;
 
     startup.status = 'revoked';
     startup.revocationReason = reason;
@@ -489,6 +564,27 @@ exports.revokeStartup = async (req, res) => {
       notes,
       actor: req.user._id,
     });
+
+    if (founderEmail) {
+      await sendEmail({
+        to: founderEmail,
+        subject: `Designation Revoked – ${companyName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #be123c;">Designation Revoked</h2>
+            <p>Hello ${founderName},</p>
+            <p>
+              The MinT designation for <strong>${companyName}</strong> has been
+              <strong>revoked</strong>.
+            </p>
+            <p><strong>Reason:</strong> ${reason}</p>
+            <p style="color: #666; font-size: 13px; margin-top: 30px;">
+              Digital Innovation Hub · Ministry of Innovation and Technology
+            </p>
+          </div>
+        `,
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -670,7 +766,7 @@ exports.deleteStartup = async (req, res) => {
   }
 };
 
-// ====================== ADMIN: STATS ======================
+// ====================== ADMIN / REVIEWER: STATS ======================
 exports.getAdminStats = async (req, res) => {
   try {
     const now = new Date();
@@ -709,13 +805,28 @@ exports.getAdminStats = async (req, res) => {
   }
 };
 
-// ====================== ADMIN: LIST ======================
+// ====================== ADMIN / REVIEWER: LIST (status groups fixed) ======================
 exports.getAdminStartups = async (req, res) => {
   try {
     const { status, search, sector } = req.query;
     const filter = {};
 
-    if (status && status !== 'all') filter.status = status;
+    if (status && status !== 'all') {
+      if (status === 'pending' || status === 'queue') {
+        filter.status = { $in: ['pending', 'submitted', 'under_review'] };
+      } else if (status === 'verified' || status === 'designated') {
+        filter.status = { $in: ['verified', 'designated'] };
+      } else if (status === 'rejected') {
+        filter.status = 'rejected';
+      } else if (status === 'suspended') {
+        filter.status = 'suspended';
+      } else if (status === 'under_review') {
+        filter.status = 'under_review';
+      } else {
+        filter.status = status;
+      }
+    }
+
     if (sector) filter.sector = sector;
     if (search) {
       filter.$or = [
@@ -738,51 +849,7 @@ exports.getAdminStartups = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
-// ====================== REVIEWER/ADMIN: START REVIEW ======================
-exports.startReview = async (req, res) => {
-  try {
-    const startup = await Startup.findById(req.params.id).populate(
-      'founder',
-      'fullName email'
-    );
 
-    if (!startup) {
-      return res.status(404).json({ success: false, message: 'Startup not found' });
-    }
-
-    if (!['pending', 'submitted', 'under_review'].includes(startup.status)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Only queued applications can be moved to under review',
-      });
-    }
-
-    const notes = (req.body?.notes || '').trim();
-
-    startup.status = 'under_review';
-    if (notes) startup.adminNotes = notes;
-    await startup.save();
-
-    await CaseDecision.create({
-      entityType: 'startup',
-      entityId: startup._id,
-      action: 'request_info',
-      reason: 'Moved to under review by staff',
-      notes: notes || `Review started by ${req.user.role}`,
-      actor: req.user._id,
-      meta: { staffRole: req.user.role },
-    });
-
-    res.status(200).json({
-      success: true,
-      message: 'Application is now under review',
-      data: startup,
-    });
-  } catch (error) {
-    console.error('Start review error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-};
 // ====================== PUBLIC STATS ======================
 exports.getPublicStats = async (req, res) => {
   try {

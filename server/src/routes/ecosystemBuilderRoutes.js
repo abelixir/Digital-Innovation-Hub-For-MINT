@@ -20,7 +20,8 @@ router.post('/', restrictTo('ecosystem_builder', 'founder', 'admin'), createBuil
 router.get('/my', restrictTo('ecosystem_builder', 'founder', 'admin'), getMyBuilder);
 router.put('/my', restrictTo('ecosystem_builder', 'founder', 'admin'), updateMyBuilder);
 
-router.get('/admin', restrictTo('admin'), getAdminBuilders);
+// Admin + reviewer can VIEW applications; only admin decides
+router.get('/admin', restrictTo('admin', 'reviewer'), getAdminBuilders);
 router.patch('/:id/approve', restrictTo('admin'), approveBuilder);
 router.patch('/:id/reject', restrictTo('admin'), rejectBuilder);
 

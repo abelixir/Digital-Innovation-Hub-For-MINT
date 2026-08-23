@@ -26,8 +26,9 @@ const NAV = {
     { to: "/admin/builders", label: "Builders", icon: Building2 },
     { to: "/profile", label: "Profile", icon: User },
   ],
-  reviewer: [
-    { to: "/reviewer", label: "Review queue", icon: ClipboardList, end: true },
+    reviewer: [
+    { to: "/reviewer", label: "Startups", icon: ClipboardList, end: true },
+    { to: "/reviewer/builders", label: "Builders", icon: Building2 },
     { to: "/reviewer/opportunities", label: "Opportunities", icon: Megaphone },
     { to: "/profile", label: "Profile", icon: User },
   ],

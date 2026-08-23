@@ -128,6 +128,27 @@ export default function FounderDashboard() {
 
   const pending = requests.filter((r) => r.status === "pending");
 
+  const decisionBanner =
+    startup.status === "rejected" && startup.rejectionReason
+      ? {
+          title: "Application rejected",
+          reason: startup.rejectionReason,
+          className: "bg-red-50 border-red-100 text-red-900",
+        }
+      : startup.status === "suspended" && startup.suspensionReason
+      ? {
+          title: "Designation suspended",
+          reason: startup.suspensionReason,
+          className: "bg-amber-50 border-amber-100 text-amber-900",
+        }
+      : startup.status === "revoked" && startup.revocationReason
+      ? {
+          title: "Designation revoked",
+          reason: startup.revocationReason,
+          className: "bg-rose-50 border-rose-100 text-rose-900",
+        }
+      : null;
+
   return (
     <AppShell
       title="Founder workspace"
@@ -141,6 +162,23 @@ export default function FounderDashboard() {
         </Link>
       }
     >
+      {decisionBanner && (
+        <div
+          className={`mb-6 p-4 rounded-2xl border flex gap-3 ${decisionBanner.className}`}
+        >
+          <AlertCircle size={20} className="shrink-0 mt-0.5" />
+          <div>
+            <div className="font-semibold text-sm">{decisionBanner.title}</div>
+            <p className="text-sm mt-1">
+              <strong>Reason from MinT:</strong> {decisionBanner.reason}
+            </p>
+            {startup.adminNotes && (
+              <p className="text-xs mt-1 opacity-80">Note: {startup.adminNotes}</p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         <StatCard
           label="Designation status"

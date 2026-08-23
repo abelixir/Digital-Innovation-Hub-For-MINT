@@ -23,6 +23,7 @@ import Opportunities from "./pages/Opportunities";
 import AdminOpportunities from "./pages/admin/AdminOpportunities";
 import InvestorOpportunities from "./pages/investor/InvestorOpportunities";
 import ReviewerDashboard from "./pages/reviewer/ReviewerDashboard";
+import ReviewerBuilders from "./pages/reviewer/ReviewerBuilders";
 
 function roleHome(role) {
   if (role === "founder") return "/founder";
@@ -338,6 +339,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <OpportunitiesRedirect />
+          </ProtectedRoute>
+        }
+      />
+            <Route
+        path="/reviewer/builders"
+        element={
+          <ProtectedRoute roles={["reviewer"]}>
+            <ReviewerBuilders />
           </ProtectedRoute>
         }
       />
