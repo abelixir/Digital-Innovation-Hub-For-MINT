@@ -6,6 +6,7 @@ import { apiRequest } from "../../utils/api";
 import AppShell from "../../components/AppShell";
 import StatCard from "../../components/StatCard";
 import StatusBadge from "../../components/StatusBadge";
+import AnalyticsCharts from "../../components/AnalyticsCharts";
 import { SECTORS } from "../../data/mockData";
 import {
   Building2,
@@ -50,12 +51,9 @@ export default function AdminDashboard() {
     setListLoading(true);
     try {
       const params = new URLSearchParams();
-      if (status && status !== "all") {
-        params.set("status", status);
-      }
+      if (status && status !== "all") params.set("status", status);
       if (q) params.set("search", q);
       if (sec) params.set("sector", sec);
-
       const res = await apiRequest(`/startups/admin?${params.toString()}`);
       setStartups(res.data || []);
     } catch (err) {
@@ -123,13 +121,15 @@ export default function AdminDashboard() {
         </div>
       }
     >
-      <div className="grid sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
+      <div className="grid sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
         <StatCard label="In queue" value={stats?.pending ?? 0} icon={Inbox} color="amber" />
         <StatCard label="Overdue" value={stats?.overdue ?? 0} icon={AlertTriangle} color="red" />
         <StatCard label="Designated" value={stats?.verified ?? 0} icon={CheckCircle} color="teal" />
         <StatCard label="Investors" value={stats?.totalInvestors ?? 0} icon={Users} color="purple" />
         <StatCard label="Total startups" value={stats?.totalStartups ?? 0} icon={Building2} color="blue" />
       </div>
+
+      <AnalyticsCharts charts={stats?.charts} />
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-4 sm:px-6 pt-3 border-b border-slate-100 flex flex-wrap gap-1">
@@ -189,7 +189,6 @@ export default function AdminDashboard() {
           <div className="py-16 text-center">
             <Inbox className="mx-auto text-slate-300 mb-3" size={28} />
             <p className="text-sm font-medium text-slate-700">No applications found</p>
-            <p className="text-xs text-slate-400 mt-1">Try another tab or clear filters</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -208,22 +207,17 @@ export default function AdminDashboard() {
                 {startups.map((item) => (
                   <tr key={item._id} className="hover:bg-slate-50/80">
                     <td className="px-4 sm:px-6 py-4">
-                      <div className="flex items-start gap-3 min-w-[200px]">
-                        <span className="text-lg leading-none mt-0.5">{item.logo || "🚀"}</span>
-                        <div>
-                          <div className="font-semibold text-slate-900">{item.companyName}</div>
-                          <div className="text-xs text-slate-500 mt-0.5">
-                            {item.founder?.fullName || "—"}
-                            {item.founder?.email ? ` · ${item.founder.email}` : ""}
-                          </div>
-                        </div>
+                      <div className="font-semibold text-slate-900">{item.companyName}</div>
+                      <div className="text-xs text-slate-500">
+                        {item.founder?.fullName || "—"}
+                        {item.founder?.email ? ` · ${item.founder.email}` : ""}
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-slate-600 whitespace-nowrap">{item.sector}</td>
-                    <td className="px-4 py-4 text-slate-600 whitespace-nowrap">
+                    <td className="px-4 py-4 text-slate-600">{item.sector}</td>
+                    <td className="px-4 py-4 text-slate-600">
                       {new Date(item.submittedAt || item.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4">
                       {item.reviewDueAt ? (
                         <span
                           className={`text-xs font-medium ${
@@ -234,7 +228,7 @@ export default function AdminDashboard() {
                           {isOverdue(item) ? " · overdue" : ""}
                         </span>
                       ) : (
-                        <span className="text-slate-400">—</span>
+                        "—"
                       )}
                     </td>
                     <td className="px-4 py-4">

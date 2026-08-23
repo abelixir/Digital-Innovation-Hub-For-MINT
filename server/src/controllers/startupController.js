@@ -291,7 +291,6 @@ exports.startReview = async (req, res) => {
       actor: req.user._id,
       meta: {
         reviewerRole: req.user.role,
-        previousStatus: startup.status,
       },
     });
 
@@ -777,11 +776,26 @@ exports.deleteStartup = async (req, res) => {
   }
 };
 
-// ====================== ADMIN / REVIEWER: STATS ======================
+// ====================== ADMIN / STAFF: STATS (charts) ======================
 exports.getAdminStats = async (req, res) => {
   try {
     const now = new Date();
-    const [total, verified, pending, rejected, suspended, overdue] = await Promise.all([
+    const User = require('../models/User');
+    const Opportunity = require('../models/Opportunity');
+
+    const [
+      total,
+      verified,
+      pending,
+      rejected,
+      suspended,
+      overdue,
+      bySector,
+      byStatus,
+      roleCounts,
+      recentMonths,
+      oppCounts,
+    ] = await Promise.all([
       Startup.countDocuments(),
       Startup.countDocuments({ status: { $in: PUBLIC_STATUSES } }),
       Startup.countDocuments({
@@ -793,10 +807,80 @@ exports.getAdminStats = async (req, res) => {
         status: { $in: ['pending', 'submitted', 'under_review'] },
         reviewDueAt: { $lt: now },
       }),
+      Startup.aggregate([
+        { $group: { _id: '$sector', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      Startup.aggregate([
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      User.aggregate([{ $group: { _id: '$role', count: { $sum: 1 } } }]),
+      Startup.aggregate([
+        {
+          $match: {
+            createdAt: {
+              $gte: new Date(now.getFullYear(), now.getMonth() - 5, 1),
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              y: { $year: '$createdAt' },
+              m: { $month: '$createdAt' },
+            },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { '_id.y': 1, '_id.m': 1 } },
+      ]),
+      Opportunity.aggregate([
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
     ]);
 
-    const User = require('../models/User');
-    const investors = await User.countDocuments({ role: 'investor' });
+    const roleMap = {
+      founder: 0,
+      investor: 0,
+      citizen: 0,
+      admin: 0,
+      reviewer: 0,
+      moderator: 0,
+      ecosystem_builder: 0,
+    };
+    roleCounts.forEach((r) => {
+      if (r._id && roleMap[r._id] !== undefined) roleMap[r._id] = r.count;
+    });
+
+    const monthNames = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    const applicationsOverTime = recentMonths.map((row) => ({
+      label: `${monthNames[(row._id.m || 1) - 1]} ${row._id.y}`,
+      count: row.count,
+    }));
+
+    const statusChart = byStatus.map((s) => ({
+      name: (s._id || 'unknown').replace(/_/g, ' '),
+      value: s.count,
+    }));
+
+    const sectorChart = bySector.map((s) => ({
+      name: s._id || 'Other',
+      value: s.count,
+    }));
+
+    const usersByRole = Object.entries(roleMap).map(([name, value]) => ({
+      name: name.replace(/_/g, ' '),
+      value,
+    }));
+
+    const opportunityByStatus = oppCounts.map((o) => ({
+      name: o._id || 'unknown',
+      value: o.count,
+    }));
 
     res.status(200).json({
       success: true,
@@ -807,7 +891,24 @@ exports.getAdminStats = async (req, res) => {
         rejected,
         suspended,
         overdue,
-        totalInvestors: investors,
+        totalInvestors: roleMap.investor,
+        totalFounders: roleMap.founder,
+        totalCitizens: roleMap.citizen,
+        totalUsers:
+          roleMap.founder +
+          roleMap.investor +
+          roleMap.citizen +
+          roleMap.admin +
+          roleMap.reviewer +
+          roleMap.moderator +
+          roleMap.ecosystem_builder,
+        charts: {
+          statusChart,
+          sectorChart,
+          usersByRole,
+          applicationsOverTime,
+          opportunityByStatus,
+        },
       },
     });
   } catch (error) {
@@ -816,7 +917,7 @@ exports.getAdminStats = async (req, res) => {
   }
 };
 
-// ====================== ADMIN / REVIEWER: LIST (status groups fixed) ======================
+// ====================== ADMIN / REVIEWER / MODERATOR: LIST ======================
 exports.getAdminStartups = async (req, res) => {
   try {
     const { status, search, sector } = req.query;
@@ -848,7 +949,8 @@ exports.getAdminStartups = async (req, res) => {
 
     const startups = await Startup.find(filter)
       .populate('founder', 'fullName email')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .select('-adminNotes');
 
     res.status(200).json({
       success: true,

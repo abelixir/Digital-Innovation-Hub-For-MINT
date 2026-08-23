@@ -24,6 +24,7 @@ import AdminOpportunities from "./pages/admin/AdminOpportunities";
 import InvestorOpportunities from "./pages/investor/InvestorOpportunities";
 import ReviewerDashboard from "./pages/reviewer/ReviewerDashboard";
 import ReviewerBuilders from "./pages/reviewer/ReviewerBuilders";
+import ModeratorStartups from "./pages/moderator/ModeratorStartups";
 
 function roleHome(role) {
   if (role === "founder") return "/founder";
@@ -87,7 +88,6 @@ function PublicLayout({ children }) {
 function AppRoutes() {
   return (
     <Routes>
-      {/* ——— Public only ——— */}
       <Route path="/" element={<PublicLayout><Home /></PublicLayout>} />
       <Route
         path="/login"
@@ -109,248 +109,42 @@ function AppRoutes() {
       <Route path="/directory" element={<PublicLayout><Directory /></PublicLayout>} />
       <Route path="/directory/:id" element={<PublicLayout><StartupDetail /></PublicLayout>} />
 
-      {/* ——— Founder ——— */}
-      <Route
-        path="/founder"
-        element={
-          <ProtectedRoute roles={["founder"]}>
-            <FounderDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/founder/create"
-        element={
-          <ProtectedRoute roles={["founder"]}>
-            <CreateStartup />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/founder/data-room"
-        element={
-          <ProtectedRoute roles={["founder"]}>
-            <DataRoom />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/founder/certificate"
-        element={
-          <ProtectedRoute roles={["founder"]}>
-            <FounderCertificate />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/founder/opportunities"
-        element={
-          <ProtectedRoute roles={["founder"]}>
-            <Opportunities embedded />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/founder" element={<ProtectedRoute roles={["founder"]}><FounderDashboard /></ProtectedRoute>} />
+      <Route path="/founder/create" element={<ProtectedRoute roles={["founder"]}><CreateStartup /></ProtectedRoute>} />
+      <Route path="/founder/data-room" element={<ProtectedRoute roles={["founder"]}><DataRoom /></ProtectedRoute>} />
+      <Route path="/founder/certificate" element={<ProtectedRoute roles={["founder"]}><FounderCertificate /></ProtectedRoute>} />
+      <Route path="/founder/opportunities" element={<ProtectedRoute roles={["founder"]}><Opportunities embedded /></ProtectedRoute>} />
 
-      {/* ——— Investor ——— */}
-      <Route
-        path="/investor"
-        element={
-          <ProtectedRoute roles={["investor"]}>
-            <InvestorDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/investor/directory"
-        element={
-          <ProtectedRoute roles={["investor"]}>
-            <Directory embedded />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/investor/directory/:id"
-        element={
-          <ProtectedRoute roles={["investor"]}>
-            <StartupDetail embedded />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/investor/opportunities"
-        element={
-          <ProtectedRoute roles={["investor"]}>
-            <InvestorOpportunities />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/investor/browse-opportunities"
-        element={
-          <ProtectedRoute roles={["investor"]}>
-            <Opportunities embedded />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/investor" element={<ProtectedRoute roles={["investor"]}><InvestorDashboard /></ProtectedRoute>} />
+      <Route path="/investor/directory" element={<ProtectedRoute roles={["investor"]}><Directory embedded /></ProtectedRoute>} />
+      <Route path="/investor/directory/:id" element={<ProtectedRoute roles={["investor"]}><StartupDetail embedded /></ProtectedRoute>} />
+      <Route path="/investor/opportunities" element={<ProtectedRoute roles={["investor"]}><InvestorOpportunities /></ProtectedRoute>} />
+      <Route path="/investor/browse-opportunities" element={<ProtectedRoute roles={["investor"]}><Opportunities embedded /></ProtectedRoute>} />
 
-      {/* ——— Citizen ——— */}
-      <Route
-        path="/citizen"
-        element={
-          <ProtectedRoute roles={["citizen"]}>
-            <CitizenDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/citizen/directory"
-        element={
-          <ProtectedRoute roles={["citizen"]}>
-            <Directory embedded />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/citizen/directory/:id"
-        element={
-          <ProtectedRoute roles={["citizen"]}>
-            <StartupDetail embedded />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/citizen/opportunities"
-        element={
-          <ProtectedRoute roles={["citizen"]}>
-            <Opportunities embedded />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/citizen" element={<ProtectedRoute roles={["citizen"]}><CitizenDashboard /></ProtectedRoute>} />
+      <Route path="/citizen/directory" element={<ProtectedRoute roles={["citizen"]}><Directory embedded /></ProtectedRoute>} />
+      <Route path="/citizen/directory/:id" element={<ProtectedRoute roles={["citizen"]}><StartupDetail embedded /></ProtectedRoute>} />
+      <Route path="/citizen/opportunities" element={<ProtectedRoute roles={["citizen"]}><Opportunities embedded /></ProtectedRoute>} />
 
-      {/* ——— Admin ——— */}
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute roles={["admin"]}>
-            <AdminDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/cases/:id"
-        element={
-          <ProtectedRoute roles={["admin"]}>
-            <AdminCaseDetail />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/users"
-        element={
-          <ProtectedRoute roles={["admin"]}>
-            <AdminUsers />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/opportunities"
-        element={
-          <ProtectedRoute roles={["admin"]}>
-            <AdminOpportunities />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/builders"
-        element={
-          <ProtectedRoute roles={["admin"]}>
-            <AdminBuilders />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/admin" element={<ProtectedRoute roles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/admin/cases/:id" element={<ProtectedRoute roles={["admin"]}><AdminCaseDetail /></ProtectedRoute>} />
+      <Route path="/admin/users" element={<ProtectedRoute roles={["admin"]}><AdminUsers /></ProtectedRoute>} />
+      <Route path="/admin/opportunities" element={<ProtectedRoute roles={["admin"]}><AdminOpportunities /></ProtectedRoute>} />
+      <Route path="/admin/builders" element={<ProtectedRoute roles={["admin"]}><AdminBuilders /></ProtectedRoute>} />
 
-      {/* ——— Reviewer (designation staff) ——— */}
-      <Route
-        path="/reviewer"
-        element={
-          <ProtectedRoute roles={["reviewer"]}>
-            <ReviewerDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/reviewer/cases/:id"
-        element={
-          <ProtectedRoute roles={["reviewer"]}>
-            <AdminCaseDetail />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/reviewer/opportunities"
-        element={
-          <ProtectedRoute roles={["reviewer"]}>
-            <Opportunities embedded />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/reviewer" element={<ProtectedRoute roles={["reviewer"]}><ReviewerDashboard /></ProtectedRoute>} />
+      <Route path="/reviewer/cases/:id" element={<ProtectedRoute roles={["reviewer"]}><AdminCaseDetail /></ProtectedRoute>} />
+      <Route path="/reviewer/opportunities" element={<ProtectedRoute roles={["reviewer"]}><Opportunities embedded /></ProtectedRoute>} />
+      <Route path="/reviewer/builders" element={<ProtectedRoute roles={["reviewer"]}><ReviewerBuilders /></ProtectedRoute>} />
 
-      {/* ——— Moderator (opportunities officer) ——— */}
-      <Route
-        path="/moderator"
-        element={
-          <ProtectedRoute roles={["moderator"]}>
-            <AdminOpportunities />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/moderator/browse"
-        element={
-          <ProtectedRoute roles={["moderator"]}>
-            <Opportunities embedded />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/moderator" element={<ProtectedRoute roles={["moderator"]}><AdminOpportunities /></ProtectedRoute>} />
+      <Route path="/moderator/startups" element={<ProtectedRoute roles={["moderator"]}><ModeratorStartups /></ProtectedRoute>} />
+      <Route path="/moderator/browse" element={<ProtectedRoute roles={["moderator"]}><Opportunities embedded /></ProtectedRoute>} />
 
-      {/* ——— Ecosystem builder ——— */}
-      <Route
-        path="/builder/opportunities"
-        element={
-          <ProtectedRoute roles={["ecosystem_builder"]}>
-            <Opportunities embedded />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/builder/opportunities" element={<ProtectedRoute roles={["ecosystem_builder"]}><Opportunities embedded /></ProtectedRoute>} />
 
-      {/* Shared profile */}
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <Profile />
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Legacy opportunities redirect */}
-      <Route
-        path="/opportunities"
-        element={
-          <ProtectedRoute>
-            <OpportunitiesRedirect />
-          </ProtectedRoute>
-        }
-      />
-            <Route
-        path="/reviewer/builders"
-        element={
-          <ProtectedRoute roles={["reviewer"]}>
-            <ReviewerBuilders />
-          </ProtectedRoute>
-        }
-      />
-
+      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/opportunities" element={<ProtectedRoute><OpportunitiesRedirect /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
