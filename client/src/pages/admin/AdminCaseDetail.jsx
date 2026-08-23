@@ -91,6 +91,11 @@ function DecisionBtn({ type, onClick }) {
   );
 }
 
+function actionLabel(action) {
+  if (action === "start_review") return "Under review (staff notes)";
+  return (action || "").replace(/_/g, " ");
+}
+
 export default function AdminCaseDetail() {
   const { id } = useParams();
   const { toast } = useToast();
@@ -151,13 +156,18 @@ export default function AdminCaseDetail() {
   };
 
   const handleStartReview = async () => {
+    const text = reviewNotes.trim();
+    if (text.length < 10) {
+      toast("Write clear review notes (at least 10 characters) for the admin", "error");
+      return;
+    }
     setStartingReview(true);
     try {
       await apiRequest(`/startups/${id}/start-review`, {
         method: "PATCH",
-        body: { notes: reviewNotes.trim() },
+        body: { notes: text },
       });
-      toast("Marked under review", "success");
+      toast("Marked under review — notes saved in audit trail", "success");
       setReviewNotes("");
       await load();
     } catch (err) {
@@ -190,6 +200,10 @@ export default function AdminCaseDetail() {
   const { startup, certificate, auditTrail, eligibility, meta } = data;
   const status = startup.status;
 
+  const latestReviewNote = (auditTrail || []).find(
+    (log) => log.action === "start_review" && log.notes
+  );
+
   return (
     <AppShell
       title={startup.companyName}
@@ -203,6 +217,20 @@ export default function AdminCaseDetail() {
         </Link>
       }
     >
+      {latestReviewNote && isAdmin && (
+        <div className="mb-6 p-4 rounded-2xl border border-blue-200 bg-blue-50">
+          <div className="text-xs font-semibold uppercase tracking-wide text-blue-800 mb-1">
+            Staff reviewer recommendation (read before decide)
+          </div>
+          <p className="text-sm text-blue-950 whitespace-pre-wrap">{latestReviewNote.notes}</p>
+          <p className="text-xs text-blue-700 mt-2">
+            By {latestReviewNote.actor?.fullName || "Reviewer"}
+            {latestReviewNote.actor?.role ? ` (${latestReviewNote.actor.role})` : ""} ·{" "}
+            {new Date(latestReviewNote.createdAt).toLocaleString()}
+          </p>
+        </div>
+      )}
+
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
@@ -313,12 +341,18 @@ export default function AdminCaseDetail() {
                 {auditTrail.map((log) => (
                   <div
                     key={log._id}
-                    className="flex gap-3 text-sm border-b border-slate-100 pb-3 last:border-0"
+                    className={`flex gap-3 text-sm border-b border-slate-100 pb-3 last:border-0 ${
+                      log.action === "start_review" ? "bg-blue-50/60 -mx-2 px-2 rounded-lg" : ""
+                    }`}
                   >
-                    <div className="w-2 h-2 rounded-full bg-teal-500 mt-2 shrink-0" />
-                    <div>
+                    <div
+                      className={`w-2 h-2 rounded-full mt-2 shrink-0 ${
+                        log.action === "start_review" ? "bg-blue-500" : "bg-teal-500"
+                      }`}
+                    />
+                    <div className="min-w-0 flex-1">
                       <div className="font-medium text-slate-900 capitalize">
-                        {log.action.replace("_", " ")}
+                        {actionLabel(log.action)}
                       </div>
                       <div className="text-xs text-slate-500">
                         {log.actor?.fullName || "System"}
@@ -329,7 +363,12 @@ export default function AdminCaseDetail() {
                         <div className="text-xs text-slate-600 mt-1">{log.reason}</div>
                       )}
                       {log.notes && (
-                        <div className="text-xs text-slate-400 mt-0.5">{log.notes}</div>
+                        <div className="mt-2 p-2 rounded-lg bg-white border border-slate-200 text-sm text-slate-800 whitespace-pre-wrap">
+                          <span className="text-[11px] font-semibold uppercase text-slate-500 block mb-1">
+                            Notes for decision
+                          </span>
+                          {log.notes}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -348,7 +387,7 @@ export default function AdminCaseDetail() {
             {!isAdmin && (
               <div className="space-y-3">
                 <p className="text-xs text-slate-500">
-                  You can move the case to under review. Final designate / reject is
+                  Write clear notes for the admin (required). Final designate / reject is
                   Admin only.
                 </p>
                 {["pending", "submitted", "under_review"].includes(status) && (
@@ -356,10 +395,13 @@ export default function AdminCaseDetail() {
                     <textarea
                       value={reviewNotes}
                       onChange={(e) => setReviewNotes(e.target.value)}
-                      rows={3}
-                      placeholder="Optional review notes…"
+                      rows={5}
+                      placeholder="Required: summary of eligibility, risks, recommendation…"
                       className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
                     />
+                    <p className="text-[11px] text-slate-400">
+                      {reviewNotes.trim().length}/10 characters minimum
+                    </p>
                     <button
                       type="button"
                       disabled={startingReview}

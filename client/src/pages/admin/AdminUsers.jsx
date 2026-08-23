@@ -20,17 +20,20 @@ import {
 
 const ROLE_TABS = [
   { key: "all", label: "All" },
+  { key: "citizen", label: "Citizens" },
   { key: "reviewer", label: "Reviewers" },
   { key: "moderator", label: "Moderators" },
-  { key: "admin", label: "Admins" },
   { key: "founder", label: "Founders" },
   { key: "investor", label: "Investors" },
-  { key: "citizen", label: "Citizens" },
   { key: "ecosystem_builder", label: "Builders" },
+  { key: "admin", label: "Admins" },
 ];
 
-// Only internal staff (+ demote to citizen). Not founder/investor/builder.
-const ASSIGNABLE = ["citizen", "reviewer", "moderator", "admin"];
+// Only these can be assigned (never admin / founder / investor / builder)
+const ASSIGNABLE = ["reviewer", "moderator", "citizen"];
+
+// Only these current roles show "Assign staff role"
+const CAN_CHANGE_ROLE = ["citizen", "reviewer", "moderator"];
 
 export default function AdminUsers() {
   const { user } = useAuth();
@@ -53,7 +56,7 @@ export default function AdminUsers() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [roleTarget, setRoleTarget] = useState(null);
-  const [newRole, setNewRole] = useState("moderator");
+  const [newRole, setNewRole] = useState("reviewer");
   const [savingRole, setSavingRole] = useState(false);
 
   const fetchUsers = async (selectedRole = role, q = search) => {
@@ -132,15 +135,27 @@ export default function AdminUsers() {
   return (
     <AppShell title="Users" subtitle={`Staff assignment · ${user?.fullName || "admin"}`}>
       <div className="mb-4 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
-        <strong>Assign staff only:</strong> reviewer, moderator, admin, or demote to citizen.
-        Founder / investor / builder roles come from public registration, not from this panel.
+        <strong>Staff only:</strong> promote a <strong>citizen</strong> to{" "}
+        <strong>reviewer</strong> or <strong>moderator</strong>, or demote staff back to{" "}
+        <strong>citizen</strong>. Founders, investors, and builders keep their registration
+        role. Admin is not assignable here.
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard label="Total" value={roleCounts.total} icon={Users} color="blue" />
-        <StatCard label="Reviewers" value={roleCounts.reviewer || 0} icon={ClipboardList} color="amber" />
-        <StatCard label="Moderators" value={roleCounts.moderator || 0} icon={Megaphone} color="teal" />
-        <StatCard label="Admins" value={roleCounts.admin} icon={Shield} color="purple" />
+        <StatCard
+          label="Reviewers"
+          value={roleCounts.reviewer || 0}
+          icon={ClipboardList}
+          color="amber"
+        />
+        <StatCard
+          label="Moderators"
+          value={roleCounts.moderator || 0}
+          icon={Megaphone}
+          color="teal"
+        />
+        <StatCard label="Admins" value={roleCounts.admin || 0} icon={Shield} color="purple" />
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
@@ -198,6 +213,8 @@ export default function AdminUsers() {
             {users.map((u) => {
               const uid = u.id || u._id;
               const isSelf = uid === user?.id || uid === user?._id;
+              const canAssignStaff = CAN_CHANGE_ROLE.includes(u.role) && !isSelf;
+
               return (
                 <div
                   key={uid}
@@ -221,21 +238,20 @@ export default function AdminUsers() {
                     <div className="text-xs text-slate-500 mt-0.5">{u.email}</div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      disabled={isSelf}
-                      onClick={() => {
-                        setRoleTarget(u);
-                        setNewRole(
-                          ASSIGNABLE.includes(u.role) && u.role !== "admin"
-                            ? u.role
-                            : "moderator"
-                        );
-                      }}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg disabled:opacity-40"
-                    >
-                      <Shield size={13} /> Assign staff role
-                    </button>
+                    {canAssignStaff && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRoleTarget(u);
+                          setNewRole(
+                            ASSIGNABLE.includes(u.role) ? u.role : "reviewer"
+                          );
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg"
+                      >
+                        <Shield size={13} /> Assign staff role
+                      </button>
+                    )}
                     <button
                       type="button"
                       disabled={isSelf}
@@ -279,7 +295,7 @@ export default function AdminUsers() {
           <strong>{roleTarget?.fullName}</strong> ({roleTarget?.email})
           <br />
           <span className="text-xs text-slate-500">
-            Current role: {roleTarget?.role}. You can only assign staff roles or citizen.
+            Current: {roleTarget?.role}. Options: reviewer, moderator, or citizen only.
           </span>
         </p>
         <select
@@ -287,10 +303,9 @@ export default function AdminUsers() {
           onChange={(e) => setNewRole(e.target.value)}
           className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm"
         >
-          <option value="moderator">moderator — Opportunities officer</option>
-          <option value="reviewer">reviewer — Designation committee staff</option>
-          <option value="admin">admin — Ministry-level control</option>
-          <option value="citizen">citizen — Remove staff access</option>
+          <option value="reviewer">reviewer — designation case evaluation</option>
+          <option value="moderator">moderator — opportunities officer</option>
+          <option value="citizen">citizen — remove staff access</option>
         </select>
       </Modal>
 

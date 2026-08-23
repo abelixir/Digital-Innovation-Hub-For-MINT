@@ -4,8 +4,11 @@ const AccessRequest = require('../models/AccessRequest');
 const Document = require('../models/Document');
 const cloudinary = require('../config/cloudinary');
 
-// Admin may only ASSIGN internal staff / demote to citizen
-const ASSIGNABLE_ROLES = ['citizen', 'reviewer', 'moderator', 'admin'];
+// Staff roles admin may assign (never admin, founder, investor, builder)
+const ASSIGNABLE_ROLES = ['citizen', 'reviewer', 'moderator'];
+
+// Only these current roles can be changed via staff assignment
+const ROLE_CHANGE_ALLOWED_FROM = ['citizen', 'reviewer', 'moderator'];
 
 exports.getAllUsers = async (req, res) => {
   try {
@@ -84,7 +87,7 @@ exports.updateUserRole = async (req, res) => {
     if (!role || !ASSIGNABLE_ROLES.includes(role)) {
       return res.status(400).json({
         success: false,
-        message: `Staff role must be one of: ${ASSIGNABLE_ROLES.join(', ')}. Founder/investor/builder come from registration only.`,
+        message: `Allowed staff roles only: ${ASSIGNABLE_ROLES.join(', ')}. Cannot assign admin, founder, investor, or builder.`,
       });
     }
 
@@ -100,14 +103,12 @@ exports.updateUserRole = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    if (user.role === 'admin' && role !== 'admin') {
-      const adminCount = await User.countDocuments({ role: 'admin' });
-      if (adminCount <= 1) {
-        return res.status(400).json({
-          success: false,
-          message: 'Cannot demote the last admin account',
-        });
-      }
+    if (!ROLE_CHANGE_ALLOWED_FROM.includes(user.role)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Role can only be changed for citizens, reviewers, or moderators. Founders, investors, and builders keep their registration role.',
+      });
     }
 
     const previousRole = user.role;

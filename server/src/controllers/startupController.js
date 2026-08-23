@@ -269,24 +269,35 @@ exports.startReview = async (req, res) => {
     }
 
     const notes = (req.body?.notes || '').trim();
+    if (!notes || notes.length < 10) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Review notes are required (at least 10 characters). Admin will read these before final decision.',
+      });
+    }
 
     startup.status = 'under_review';
     startup.reviewedBy = req.user._id;
-    if (notes) startup.adminNotes = notes;
+    startup.adminNotes = notes;
     await startup.save();
 
     await CaseDecision.create({
       entityType: 'startup',
       entityId: startup._id,
       action: 'start_review',
-      reason: 'Case marked under review',
+      reason: 'Reviewer marked case under review',
       notes,
       actor: req.user._id,
+      meta: {
+        reviewerRole: req.user.role,
+        previousStatus: startup.status,
+      },
     });
 
     res.status(200).json({
       success: true,
-      message: 'Startup marked under review',
+      message: 'Marked under review. Notes saved for admin audit.',
       data: startup,
     });
   } catch (error) {

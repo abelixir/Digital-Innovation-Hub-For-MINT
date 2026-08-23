@@ -15,6 +15,7 @@ const caseDecisionSchema = new mongoose.Schema(
       type: String,
       enum: [
         'submit',
+        'start_review',
         'approve',
         'reject',
         'suspend',
