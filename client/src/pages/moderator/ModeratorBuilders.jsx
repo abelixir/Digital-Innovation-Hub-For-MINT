@@ -4,7 +4,6 @@ import { useToast } from "../../context/ToastContext";
 import { apiRequest } from "../../utils/api";
 import AppShell from "../../components/AppShell";
 import StatusBadge from "../../components/StatusBadge";
-import { LogoIcon } from "../../components/IconPicker";
 import { Loader2, Search, Network } from "lucide-react";
 
 const TABS = [
@@ -99,7 +98,10 @@ export default function ModeratorBuilders() {
               className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
           </div>
-          <button type="submit" className="px-4 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-xl">
+          <button
+            type="submit"
+            className="px-4 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-xl"
+          >
             Search
           </button>
         </form>
@@ -129,10 +131,12 @@ export default function ModeratorBuilders() {
                   <tr key={b._id} className="hover:bg-slate-50/80">
                     <td className="px-4 sm:px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center">
-                          <LogoIcon name={b.logo || "Building2"} size={16} />
+                        <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center text-base">
+                          {b.logo || "🏢"}
                         </div>
-                        <span className="font-semibold text-slate-900">{b.organizationName}</span>
+                        <span className="font-semibold text-slate-900">
+                          {b.organizationName}
+                        </span>
                       </div>
                     </td>
                     <td className="px-4 py-4 text-slate-600 capitalize">
