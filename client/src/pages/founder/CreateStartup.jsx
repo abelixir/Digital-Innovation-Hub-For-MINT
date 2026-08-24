@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { apiRequest } from "../../utils/api";
 import { useToast } from "../../context/ToastContext";
 import AppShell from "../../components/AppShell";
 import { SECTORS, STAGES, LOCATIONS, COUNTRIES } from "../../data/mockData";
-import { Loader2, ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle2, XCircle, ChevronDown } from "lucide-react";
 
 const LOGO_EMOJIS = ["🚀", "🌱", "💳", "📚", "🏥", "⚡", "🚚", "🏦", "🛠️", "💡", "🌐", "🔬"];
 
@@ -38,6 +38,8 @@ export default function CreateStartup() {
   const [error, setError] = useState("");
   const [isEdit, setIsEdit] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [logoOpen, setLogoOpen] = useState(false);
+  const logoRef = useRef(null);
 
   useEffect(() => {
     const load = async () => {
@@ -78,6 +80,16 @@ export default function CreateStartup() {
       }
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (logoRef.current && !logoRef.current.contains(e.target)) {
+        setLogoOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
   const checklist = useMemo(() => {
@@ -175,38 +187,46 @@ export default function CreateStartup() {
           className="lg:col-span-2 space-y-6 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm"
         >
           <Section title="Company identity">
-            <Field
-              label="Company name *"
-              name="companyName"
-              value={form.companyName}
-              onChange={handleChange}
-              required
-            />
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Logo</label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {LOGO_EMOJIS.map((em) => (
-                  <button
-                    key={em}
-                    type="button"
-                    onClick={() => setForm((p) => ({ ...p, logo: em }))}
-                    className={`w-10 h-10 text-xl rounded-xl border ${
-                      form.logo === em
-                        ? "border-teal-500 bg-teal-50"
-                        : "border-slate-200 bg-white hover:bg-slate-50"
-                    }`}
-                  >
-                    {em}
-                  </button>
-                ))}
-              </div>
-              <input
-                name="logo"
-                value={form.logo}
+            <div className="grid sm:grid-cols-4 gap-4">
+              <Field
+                className="sm:col-span-3"
+                label="Company name *"
+                name="companyName"
+                value={form.companyName}
                 onChange={handleChange}
-                maxLength={4}
-                className="w-20 px-2 py-1.5 rounded-lg border border-slate-300 text-center text-lg"
+                required
               />
+              <div ref={logoRef} className="relative">
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Logo</label>
+                <button
+                  type="button"
+                  onClick={() => setLogoOpen((o) => !o)}
+                  className="w-full h-[42px] flex items-center justify-center gap-1 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-2xl"
+                  title="Click to choose logo"
+                >
+                  <span>{form.logo || "🚀"}</span>
+                  <ChevronDown size={14} className="text-slate-400" />
+                </button>
+                {logoOpen && (
+                  <div className="absolute z-20 mt-1 left-0 right-0 sm:min-w-[220px] p-2 rounded-xl border border-slate-200 bg-white shadow-lg grid grid-cols-4 gap-1">
+                    {LOGO_EMOJIS.map((em) => (
+                      <button
+                        key={em}
+                        type="button"
+                        onClick={() => {
+                          setForm((p) => ({ ...p, logo: em }));
+                          setLogoOpen(false);
+                        }}
+                        className={`h-10 text-xl rounded-lg hover:bg-teal-50 ${
+                          form.logo === em ? "bg-teal-50 ring-1 ring-teal-400" : ""
+                        }`}
+                      >
+                        {em}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <Field
               label="One-line description *"

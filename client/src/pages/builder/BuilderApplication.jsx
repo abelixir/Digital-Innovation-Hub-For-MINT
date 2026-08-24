@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../utils/api";
 import { useToast } from "../../context/ToastContext";
 import AppShell from "../../components/AppShell";
 import { COUNTRIES } from "../../data/mockData";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, ChevronDown } from "lucide-react";
 
 const TYPES = [
   { value: "incubator", label: "Incubator" },
@@ -45,6 +45,8 @@ export default function BuilderApplication() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isUpdate, setIsUpdate] = useState(false);
+  const [logoOpen, setLogoOpen] = useState(false);
+  const logoRef = useRef(null);
 
   useEffect(() => {
     const load = async () => {
@@ -77,6 +79,16 @@ export default function BuilderApplication() {
       }
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (logoRef.current && !logoRef.current.contains(e.target)) {
+        setLogoOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
   const setRes = (key, value) => {
@@ -124,41 +136,49 @@ export default function BuilderApplication() {
         onSubmit={handleSubmit}
         className="max-w-2xl bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-5"
       >
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Organization name *</label>
-          <input
-            required
-            value={form.organizationName}
-            onChange={(e) => setForm({ ...form, organizationName: e.target.value })}
-            className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Logo</label>
-          <div className="flex flex-wrap gap-2">
-            {LOGO_EMOJIS.map((em) => (
-              <button
-                key={em}
-                type="button"
-                onClick={() => setForm({ ...form, logo: em })}
-                className={`w-10 h-10 text-xl rounded-xl border ${
-                  form.logo === em
-                    ? "border-teal-500 bg-teal-50"
-                    : "border-slate-200 bg-white hover:bg-slate-50"
-                }`}
-              >
-                {em}
-              </button>
-            ))}
+        <div className="grid sm:grid-cols-4 gap-4">
+          <div className="sm:col-span-3">
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Organization name *
+            </label>
+            <input
+              required
+              value={form.organizationName}
+              onChange={(e) => setForm({ ...form, organizationName: e.target.value })}
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
           </div>
-          <input
-            value={form.logo}
-            onChange={(e) => setForm({ ...form, logo: e.target.value })}
-            maxLength={4}
-            className="mt-2 w-20 px-2 py-1.5 rounded-lg border border-slate-300 text-center text-lg"
-            title="Or type any emoji"
-          />
+          <div ref={logoRef} className="relative">
+            <label className="block text-sm font-medium text-slate-700 mb-1">Logo</label>
+            <button
+              type="button"
+              onClick={() => setLogoOpen((o) => !o)}
+              className="w-full h-[42px] flex items-center justify-center gap-1 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-2xl"
+              title="Click to choose logo"
+            >
+              <span>{form.logo || "🏢"}</span>
+              <ChevronDown size={14} className="text-slate-400" />
+            </button>
+            {logoOpen && (
+              <div className="absolute z-20 mt-1 left-0 right-0 sm:min-w-[200px] p-2 rounded-xl border border-slate-200 bg-white shadow-lg grid grid-cols-5 gap-1">
+                {LOGO_EMOJIS.map((em) => (
+                  <button
+                    key={em}
+                    type="button"
+                    onClick={() => {
+                      setForm({ ...form, logo: em });
+                      setLogoOpen(false);
+                    }}
+                    className={`h-10 text-xl rounded-lg hover:bg-teal-50 ${
+                      form.logo === em ? "bg-teal-50 ring-1 ring-teal-400" : ""
+                    }`}
+                  >
+                    {em}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div>

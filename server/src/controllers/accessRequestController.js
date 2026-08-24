@@ -2,6 +2,8 @@ const AccessRequest = require('../models/AccessRequest');
 const Startup = require('../models/Startup');
 const sendEmail = require('../utils/sendEmail');
 
+const PUBLIC_OK = ['verified', 'designated'];
+
 // ====================== INVESTOR: CREATE REQUEST ======================
 exports.createRequest = async (req, res) => {
   try {
@@ -20,10 +22,10 @@ exports.createRequest = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Startup not found' });
     }
 
-    if (startup.status !== 'verified') {
+    if (!PUBLIC_OK.includes(startup.status)) {
       return res.status(400).json({
         success: false,
-        message: 'Can only request access to verified startups',
+        message: 'Can only request access to MinT-designated startups',
       });
     }
 
@@ -36,6 +38,7 @@ exports.createRequest = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: `You already have a ${existing.status} request for this startup`,
+        data: existing,
       });
     }
 
@@ -45,12 +48,13 @@ exports.createRequest = async (req, res) => {
       message,
       ticketSize: investmentRange || req.user.investmentRange,
       focus: focus || req.user.focus || [],
+      status: 'pending',
     });
 
     await Startup.findByIdAndUpdate(startupId, { $inc: { requestCount: 1 } });
 
     const populated = await AccessRequest.findById(request._id)
-      .populate('startup', 'companyName logo sector fundingStage')
+      .populate('startup', 'companyName logo sector fundingStage status')
       .populate('investor', 'fullName email organization investmentRange focus');
 
     const founderEmail = startup.founder?.email;
@@ -65,38 +69,16 @@ exports.createRequest = async (req, res) => {
             <h2 style="color: #0d9488;">New Access Request</h2>
             <p>Hello ${founderName},</p>
             <p>You have a new Data Room access request for <strong>${startup.companyName}</strong>.</p>
-            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-              <tr>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Investor</strong></td>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;">${req.user.fullName}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Organization</strong></td>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;">${req.user.organization || '—'}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Investment range</strong></td>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;">${req.user.investmentRange || '—'}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Focus</strong></td>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;">${(req.user.focus || []).join(', ') || '—'}</td>
-              </tr>
-            </table>
+            <p><strong>Investor:</strong> ${req.user.fullName}</p>
             <p>
               <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/founder"
                  style="background: #0d9488; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
                 Review Request
               </a>
             </p>
-            <p style="color: #666; font-size: 13px; margin-top: 30px;">
-              Digital Innovation Hub · Ministry of Innovation and Technology
-            </p>
           </div>
         `,
       });
-    } else {
-      console.log('Request email skipped: founder email missing');
     }
 
     res.status(201).json({
@@ -191,23 +173,18 @@ exports.approveRequest = async (req, res) => {
             <h2 style="color: #0d9488;">Access Request Approved</h2>
             <p>Hello ${investorName},</p>
             <p>
-              Great news! Your Data Room access request for
-              <strong>${companyName}</strong> has been <strong>approved</strong>.
+              Your Data Room access for <strong>${companyName}</strong> has been
+              <strong>approved</strong>. Open the startup page to download files.
             </p>
             <p>
-              <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/directory/${startupId}"
+              <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/investor/directory/${startupId}"
                  style="background: #0d9488; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
-                View Startup
+                Open data room
               </a>
-            </p>
-            <p style="color: #666; font-size: 13px; margin-top: 30px;">
-              Digital Innovation Hub · Ministry of Innovation and Technology
             </p>
           </div>
         `,
       });
-    } else {
-      console.log('Access approve email skipped: investor email missing');
     }
 
     res.status(200).json({
@@ -256,21 +233,9 @@ exports.denyRequest = async (req, res) => {
               Your Data Room access request for
               <strong>${companyName}</strong> was not approved at this time.
             </p>
-            <p>You can continue exploring other verified startups on the platform.</p>
-            <p>
-              <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/directory"
-                 style="background: #0d9488; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
-                Browse Directory
-              </a>
-            </p>
-            <p style="color: #666; font-size: 13px; margin-top: 30px;">
-              Digital Innovation Hub · Ministry of Innovation and Technology
-            </p>
           </div>
         `,
       });
-    } else {
-      console.log('Access deny email skipped: investor email missing');
     }
 
     res.status(200).json({
