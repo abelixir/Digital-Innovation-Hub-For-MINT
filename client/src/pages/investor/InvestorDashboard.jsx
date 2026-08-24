@@ -159,7 +159,9 @@ export default function InvestorDashboard() {
                             to={`/investor/directory/${req.startup._id}`}
                             className="text-teal-700 hover:underline"
                           >
-                            View
+                            {req.status === "approved"
+                              ? "Open data room"
+                              : "View startup"}
                           </Link>
                         </>
                       )}
