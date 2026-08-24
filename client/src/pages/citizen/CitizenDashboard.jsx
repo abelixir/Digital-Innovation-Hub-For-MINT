@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import AppShell from "../../components/AppShell";
-import { Building2, ArrowRight, Megaphone } from "lucide-react";
+import { Building2, ArrowRight, Megaphone, Network } from "lucide-react";
 
 export default function CitizenDashboard() {
   const { user } = useAuth();
@@ -11,14 +11,22 @@ export default function CitizenDashboard() {
       title: "Designated startups",
       description: "Explore startups designated by MinT across Ethiopia.",
       icon: Building2,
-      to: "/directory",
+      to: "/citizen/directory",
       color: "bg-teal-50 text-teal-700",
+    },
+    {
+      title: "Ecosystem builders",
+      description:
+        "Find MinT-designated incubators, hubs, accelerators and support organizations.",
+      icon: Network,
+      to: "/citizen/builders",
+      color: "bg-amber-50 text-amber-700",
     },
     {
       title: "Opportunities",
       description: "Jobs, internships, scholarships and official announcements.",
       icon: Megaphone,
-      to: "/opportunities",
+      to: "/citizen/opportunities",
       color: "bg-indigo-50 text-indigo-600",
     },
   ];
@@ -29,10 +37,10 @@ export default function CitizenDashboard() {
       subtitle={`Welcome, ${user?.fullName?.split(" ")[0] || "Citizen"}`}
     >
       <p className="text-slate-600 mb-8 max-w-2xl">
-        Explore Ethiopia&apos;s innovation ecosystem, discover opportunities, and
-        stay connected with designated startups.
+        Explore Ethiopia&apos;s innovation ecosystem — designated startups, support
+        organizations, and opportunities.
       </p>
-      <div className="grid sm:grid-cols-2 gap-5">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {features.map((item) => (
           <Link
             key={item.title}

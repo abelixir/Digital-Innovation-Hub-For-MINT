@@ -54,7 +54,8 @@ const NAV = {
   ],
   citizen: [
     { to: "/citizen", label: "Home", icon: LayoutDashboard, end: true },
-    { to: "/citizen/directory", label: "Directory", icon: Building2 },
+    { to: "/citizen/directory", label: "Startups", icon: Building2 },
+    { to: "/citizen/builders", label: "Builders", icon: Network },
     { to: "/citizen/opportunities", label: "Opportunities", icon: Briefcase },
   ],
   ecosystem_builder: [
