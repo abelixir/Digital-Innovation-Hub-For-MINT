@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../utils/api";
 import { useToast } from "../../context/ToastContext";
 import AppShell from "../../components/AppShell";
+import { COUNTRIES } from "../../data/mockData";
 import { Loader2, Save } from "lucide-react";
 
 const TYPES = [
@@ -16,10 +17,14 @@ const TYPES = [
   { value: "other", label: "Other" },
 ];
 
+const LOGO_EMOJIS = ["🏢", "🏛️", "🚀", "💡", "🌐", "🎓", "🔬", "🤝", "💼", "🏭"];
+
 const empty = {
   organizationName: "",
+  logo: "🏢",
   builderType: "incubator",
   description: "",
+  country: "Ethiopia",
   location: "",
   website: "",
   licenseInfo: "",
@@ -48,8 +53,10 @@ export default function BuilderApplication() {
         const b = res.data;
         setForm({
           organizationName: b.organizationName || "",
+          logo: b.logo || "🏢",
           builderType: b.builderType || "incubator",
           description: b.description || "",
+          country: b.country || "Ethiopia",
           location: b.location || "",
           website: b.website || "",
           licenseInfo: b.licenseInfo || "",
@@ -84,16 +91,10 @@ export default function BuilderApplication() {
     setSaving(true);
     try {
       if (isUpdate) {
-        await apiRequest("/ecosystem-builders/my", {
-          method: "PUT",
-          body: form,
-        });
+        await apiRequest("/ecosystem-builders/my", { method: "PUT", body: form });
         toast("Application updated", "success");
       } else {
-        await apiRequest("/ecosystem-builders", {
-          method: "POST",
-          body: form,
-        });
+        await apiRequest("/ecosystem-builders", { method: "POST", body: form });
         toast("Application submitted for MinT review", "success");
       }
       navigate("/builder");
@@ -117,30 +118,51 @@ export default function BuilderApplication() {
   return (
     <AppShell
       title={isUpdate ? "Edit application" : "Ecosystem builder application"}
-      subtitle="MinT designation for support organizations"
+      subtitle="Pending → Reviewer under review → Admin designation"
     >
       <form
         onSubmit={handleSubmit}
         className="max-w-2xl bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-5"
       >
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            Organization name *
-          </label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Organization name *</label>
           <input
             required
             value={form.organizationName}
-            onChange={(e) =>
-              setForm({ ...form, organizationName: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, organizationName: e.target.value })}
             className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            Type *
-          </label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Logo</label>
+          <div className="flex flex-wrap gap-2">
+            {LOGO_EMOJIS.map((em) => (
+              <button
+                key={em}
+                type="button"
+                onClick={() => setForm({ ...form, logo: em })}
+                className={`w-10 h-10 text-xl rounded-xl border ${
+                  form.logo === em
+                    ? "border-teal-500 bg-teal-50"
+                    : "border-slate-200 bg-white hover:bg-slate-50"
+                }`}
+              >
+                {em}
+              </button>
+            ))}
+          </div>
+          <input
+            value={form.logo}
+            onChange={(e) => setForm({ ...form, logo: e.target.value })}
+            maxLength={4}
+            className="mt-2 w-20 px-2 py-1.5 rounded-lg border border-slate-300 text-center text-lg"
+            title="Or type any emoji"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Type *</label>
           <select
             value={form.builderType}
             onChange={(e) => setForm({ ...form, builderType: e.target.value })}
@@ -155,9 +177,7 @@ export default function BuilderApplication() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            Description *
-          </label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Description *</label>
           <textarea
             required
             rows={4}
@@ -170,27 +190,39 @@ export default function BuilderApplication() {
 
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Location
-            </label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Country *</label>
+            <select
+              required
+              value={form.country}
+              onChange={(e) => setForm({ ...form, country: e.target.value })}
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              {COUNTRIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Location</label>
             <input
               value={form.location}
               onChange={(e) => setForm({ ...form, location: e.target.value })}
               className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Website
-            </label>
-            <input
-              type="url"
-              value={form.website}
-              onChange={(e) => setForm({ ...form, website: e.target.value })}
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-              placeholder="https://"
-            />
-          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Website</label>
+          <input
+            type="url"
+            value={form.website}
+            onChange={(e) => setForm({ ...form, website: e.target.value })}
+            className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            placeholder="https://"
+          />
         </div>
 
         <div>
@@ -205,9 +237,7 @@ export default function BuilderApplication() {
         </div>
 
         <div>
-          <p className="text-sm font-medium text-slate-700 mb-2">
-            Resources you offer
-          </p>
+          <p className="text-sm font-medium text-slate-700 mb-2">Resources you offer</p>
           <div className="grid sm:grid-cols-2 gap-2">
             {[
               ["space", "Space"],
@@ -216,10 +246,7 @@ export default function BuilderApplication() {
               ["training", "Training"],
               ["networking", "Networking"],
             ].map(([key, label]) => (
-              <label
-                key={key}
-                className="flex items-center gap-2 text-sm text-slate-700"
-              >
+              <label key={key} className="flex items-center gap-2 text-sm text-slate-700">
                 <input
                   type="checkbox"
                   checked={!!form.resources[key]}
@@ -243,11 +270,7 @@ export default function BuilderApplication() {
           disabled={saving}
           className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white text-sm font-semibold rounded-xl"
         >
-          {saving ? (
-            <Loader2 size={16} className="animate-spin" />
-          ) : (
-            <Save size={16} />
-          )}
+          {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
           {isUpdate ? "Save changes" : "Submit for review"}
         </button>
       </form>

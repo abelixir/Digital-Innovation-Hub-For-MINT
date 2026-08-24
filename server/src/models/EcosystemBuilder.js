@@ -14,7 +14,7 @@ const ecosystemBuilderSchema = new mongoose.Schema(
     },
     logo: {
       type: String,
-      default: 'Building2',
+      default: '🏢',
     },
     builderType: {
       type: String,

@@ -4,14 +4,14 @@ import { useToast } from "../../context/ToastContext";
 import AppShell from "../../components/AppShell";
 import StatusBadge from "../../components/StatusBadge";
 import Modal from "../../components/ui/Modal";
-import { Loader2, CheckCircle, XCircle, Building2 } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Building2, Ban } from "lucide-react";
 
 export default function AdminBuilders() {
   const { toast } = useToast();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("pending");
-  const [modal, setModal] = useState(null); // { id, action }
+  const [modal, setModal] = useState(null);
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -37,8 +37,8 @@ export default function AdminBuilders() {
 
   const submit = async () => {
     if (!modal) return;
-    if (modal.action === "reject" && !reason.trim()) {
-      toast("Reason is required to reject", "error");
+    if ((modal.action === "reject" || modal.action === "suspend") && !reason.trim()) {
+      toast("Reason is required", "error");
       return;
     }
     setSaving(true);
@@ -47,10 +47,13 @@ export default function AdminBuilders() {
         method: "PATCH",
         body: { reason: reason.trim(), notes: notes.trim() },
       });
-      toast(
-        modal.action === "approve" ? "Builder designated" : "Application rejected",
-        "success"
-      );
+      const msg =
+        modal.action === "approve"
+          ? "Builder designated"
+          : modal.action === "reject"
+          ? "Application rejected"
+          : "Builder suspended";
+      toast(msg, "success");
       setModal(null);
       setReason("");
       setNotes("");
@@ -65,10 +68,14 @@ export default function AdminBuilders() {
   return (
     <AppShell
       title="Ecosystem builders"
-      subtitle="Review incubator / hub designation applications"
+      subtitle="Final decisions after reviewer evaluation"
     >
+      <div className="mb-4 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
+        Prefer designating cases that are <strong>under review</strong> (reviewer notes appear below each card).
+      </div>
+
       <div className="flex flex-wrap gap-2 mb-6">
-        {["pending", "designated", "rejected", "all"].map((f) => (
+        {["pending", "under_review", "designated", "rejected", "suspended", "all"].map((f) => (
           <button
             key={f}
             type="button"
@@ -79,7 +86,7 @@ export default function AdminBuilders() {
                 : "bg-white border-slate-200 text-slate-600"
             }`}
           >
-            {f}
+            {f.replace("_", " ")}
           </button>
         ))}
       </div>
@@ -102,24 +109,34 @@ export default function AdminBuilders() {
             >
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <span className="text-lg">{b.logo || "🏢"}</span>
                   <h3 className="font-semibold text-slate-900 text-sm">
                     {b.organizationName}
                   </h3>
                   <StatusBadge status={b.status} />
                   <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize">
-                    {(b.builderType || "").replace("_", " ")}
+                    {(b.builderType || "").replace(/_/g, " ")}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 line-clamp-2">
-                  {b.description}
-                </p>
+                <p className="text-xs text-slate-500 line-clamp-2">{b.description}</p>
                 <p className="text-xs text-slate-400 mt-1">
-                  {b.ownerUser?.fullName} · {b.ownerUser?.email}
+                  {b.country || "—"} · {b.ownerUser?.fullName} · {b.ownerUser?.email}
                   {b.certificateNumber && ` · ${b.certificateNumber}`}
                 </p>
+                {b.adminNotes && (
+                  <p className="text-xs text-blue-800 mt-2 bg-blue-50 rounded-lg px-2 py-1.5 border border-blue-100">
+                    <strong>Reviewer / audit notes:</strong> {b.adminNotes}
+                  </p>
+                )}
+                {b.rejectionReason && (
+                  <p className="text-xs text-red-700 mt-1">Reject reason: {b.rejectionReason}</p>
+                )}
+                {b.suspensionReason && (
+                  <p className="text-xs text-amber-700 mt-1">Suspend reason: {b.suspensionReason}</p>
+                )}
               </div>
-              {b.status === "pending" && (
-                <div className="flex gap-2 shrink-0">
+              {["pending", "submitted", "under_review"].includes(b.status) && (
+                <div className="flex flex-wrap gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => setModal({ id: b._id, action: "approve" })}
@@ -136,6 +153,15 @@ export default function AdminBuilders() {
                   </button>
                 </div>
               )}
+              {b.status === "designated" && (
+                <button
+                  type="button"
+                  onClick={() => setModal({ id: b._id, action: "suspend" })}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-amber-800 bg-amber-50 rounded-lg shrink-0"
+                >
+                  <Ban size={13} /> Suspend
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -147,7 +173,9 @@ export default function AdminBuilders() {
         title={
           modal?.action === "approve"
             ? "Designate ecosystem builder"
-            : "Reject application"
+            : modal?.action === "reject"
+            ? "Reject application"
+            : "Suspend designation"
         }
         footer={
           <>
@@ -163,7 +191,11 @@ export default function AdminBuilders() {
               onClick={submit}
               disabled={saving}
               className={`px-4 py-2 text-sm font-semibold rounded-xl text-white ${
-                modal?.action === "approve" ? "bg-teal-600" : "bg-red-600"
+                modal?.action === "approve"
+                  ? "bg-teal-600"
+                  : modal?.action === "reject"
+                  ? "bg-red-600"
+                  : "bg-amber-600"
               }`}
             >
               {saving ? "Saving…" : "Confirm"}
@@ -171,11 +203,9 @@ export default function AdminBuilders() {
           </>
         }
       >
-        {modal?.action === "reject" && (
+        {(modal?.action === "reject" || modal?.action === "suspend") && (
           <div className="mb-4">
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Reason *
-            </label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Reason *</label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -185,9 +215,7 @@ export default function AdminBuilders() {
           </div>
         )}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            Internal notes
-          </label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Internal notes</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}

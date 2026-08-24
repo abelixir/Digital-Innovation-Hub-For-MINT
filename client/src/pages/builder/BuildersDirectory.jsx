@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "../../utils/api";
-import { LogoIcon } from "../../components/IconPicker";
 import { Loader2, Globe, MapPin, ExternalLink } from "lucide-react";
 
 export default function BuildersDirectory() {
@@ -47,8 +46,8 @@ export default function BuildersDirectory() {
               className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow"
             >
               <div className="flex items-start gap-3 mb-3">
-                <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
-                  <LogoIcon name={b.logo || "Building2"} size={24} />
+                <div className="w-12 h-12 rounded-xl bg-teal-50 flex items-center justify-center text-2xl shrink-0">
+                  {b.logo || "🏢"}
                 </div>
                 <div className="min-w-0">
                   <h2 className="font-semibold text-slate-900 truncate">{b.organizationName}</h2>

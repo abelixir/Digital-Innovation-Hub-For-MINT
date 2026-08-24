@@ -3,13 +3,14 @@ import { useNavigate, Link } from "react-router-dom";
 import { apiRequest } from "../../utils/api";
 import { useToast } from "../../context/ToastContext";
 import AppShell from "../../components/AppShell";
-import IconPicker from "../../components/IconPicker";
 import { SECTORS, STAGES, LOCATIONS, COUNTRIES } from "../../data/mockData";
 import { Loader2, ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
 
+const LOGO_EMOJIS = ["🚀", "🌱", "💳", "📚", "🏥", "⚡", "🚚", "🏦", "🛠️", "💡", "🌐", "🔬"];
+
 const emptyForm = {
   companyName: "",
-  logo: "Rocket",
+  logo: "🚀",
   oneLineDescription: "",
   sector: "FinTech",
   fundingStage: "Idea",
@@ -47,7 +48,7 @@ export default function CreateStartup() {
           const d = res.data;
           setForm({
             companyName: d.companyName || "",
-            logo: d.logo || "Rocket",
+            logo: d.logo || "🚀",
             oneLineDescription: d.oneLineDescription || "",
             sector: d.sector || "FinTech",
             fundingStage: d.fundingStage || "Idea",
@@ -82,19 +83,13 @@ export default function CreateStartup() {
   const checklist = useMemo(() => {
     const ownership = Number(form.founderOwnershipPercent);
     return [
-      {
-        ok: !Number.isNaN(ownership) && ownership >= 25,
-        label: "Founder ownership ≥ 25%",
-      },
+      { ok: !Number.isNaN(ownership) && ownership >= 25, label: "Founder ownership ≥ 25%" },
       { ok: !form.isPublicCompany, label: "Not a public company" },
       {
         ok: (form.innovationDescription || form.solutionStatement || "").trim().length >= 10,
         label: "Innovation / solution described",
       },
-      {
-        ok: form.productOwnershipDeclaration === true,
-        label: "Product ownership declared",
-      },
+      { ok: form.productOwnershipDeclaration === true, label: "Product ownership declared" },
       {
         ok:
           !form.hasBusinessLicense ||
@@ -102,10 +97,7 @@ export default function CreateStartup() {
             (new Date() - new Date(form.dateEstablished)) / (365.25 * 86400000) <= 5),
         label: "If licensed, age ≤ 5 years",
       },
-      {
-        ok: !!(form.country && form.country.trim()),
-        label: "Country selected",
-      },
+      { ok: !!(form.country && form.country.trim()), label: "Country selected" },
     ];
   }, [form]);
 
@@ -183,17 +175,37 @@ export default function CreateStartup() {
           className="lg:col-span-2 space-y-6 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm"
         >
           <Section title="Company identity">
-            <div className="grid sm:grid-cols-1 gap-4">
-              <Field
-                label="Company name *"
-                name="companyName"
-                value={form.companyName}
-                onChange={handleChange}
-                required
-              />
-              <IconPicker
+            <Field
+              label="Company name *"
+              name="companyName"
+              value={form.companyName}
+              onChange={handleChange}
+              required
+            />
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Logo</label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {LOGO_EMOJIS.map((em) => (
+                  <button
+                    key={em}
+                    type="button"
+                    onClick={() => setForm((p) => ({ ...p, logo: em }))}
+                    className={`w-10 h-10 text-xl rounded-xl border ${
+                      form.logo === em
+                        ? "border-teal-500 bg-teal-50"
+                        : "border-slate-200 bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    {em}
+                  </button>
+                ))}
+              </div>
+              <input
+                name="logo"
                 value={form.logo}
-                onChange={(name) => setForm((p) => ({ ...p, logo: name }))}
+                onChange={handleChange}
+                maxLength={4}
+                className="w-20 px-2 py-1.5 rounded-lg border border-slate-300 text-center text-lg"
               />
             </div>
             <Field
@@ -226,7 +238,6 @@ export default function CreateStartup() {
               value={form.innovationDescription}
               onChange={handleChange}
               rows={3}
-              placeholder="What is innovative / tech-enabled about this venture?"
             />
           </Section>
 
@@ -257,7 +268,6 @@ export default function CreateStartup() {
               />
               <Field type="date" label="Date established" name="dateEstablished" value={form.dateEstablished} onChange={handleChange} />
             </div>
-
             <label className="flex items-center gap-2 text-sm text-slate-700">
               <input type="checkbox" name="isPublicCompany" checked={form.isPublicCompany} onChange={handleChange} className="rounded border-slate-300" />
               This is a public company (not eligible)
@@ -272,9 +282,7 @@ export default function CreateStartup() {
             </label>
           </Section>
 
-          {error && (
-            <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-xl">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-xl">{error}</p>}
 
           <button
             type="submit"
@@ -307,9 +315,6 @@ export default function CreateStartup() {
               </li>
             ))}
           </ul>
-          <p className="text-xs text-slate-400 mt-4">
-            Server also validates these rules. Foreign-country startups may apply under the proclamation.
-          </p>
         </div>
       </div>
     </AppShell>
