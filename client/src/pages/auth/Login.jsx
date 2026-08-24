@@ -3,6 +3,17 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 
+function homeForRole(role) {
+  if (role === "founder") return "/founder";
+  if (role === "investor") return "/investor";
+  if (role === "admin") return "/admin/analytics";
+  if (role === "reviewer") return "/reviewer";
+  if (role === "moderator") return "/moderator";
+  if (role === "ecosystem_builder") return "/builder";
+  if (role === "citizen") return "/citizen";
+  return "/";
+}
+
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
@@ -24,11 +35,7 @@ export default function Login() {
     setLoading(true);
     try {
       const user = await login(form.email, form.password);
-      if (user.role === "founder") navigate("/founder");
-      else if (user.role === "investor") navigate("/investor");
-      else if (user.role === "admin") navigate("/admin");
-      else if (user.role === "ecosystem_builder") navigate("/builder");
-      else navigate("/citizen");
+      navigate(homeForRole(user.role));
     } catch (err) {
       setError(err.message || "Login failed");
     } finally {

@@ -12,12 +12,14 @@ import BuildersDirectory from "./pages/builder/BuildersDirectory";
 import FounderDashboard from "./pages/founder/FounderDashboard";
 import InvestorDashboard from "./pages/investor/InvestorDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminCaseDetail from "./pages/admin/AdminCaseDetail";
 import AdminBuilders from "./pages/admin/AdminBuilders";
 import CreateStartup from "./pages/founder/CreateStartup";
 import DataRoom from "./pages/founder/DataRoom";
 import FounderCertificate from "./pages/founder/FounderCertificate";
 import CitizenDashboard from "./pages/citizen/CitizenDashboard";
+import CitizenBuilders from "./pages/citizen/CitizenBuilders";
 import Profile from "./pages/Profile";
 import AdminUsers from "./pages/admin/AdminUsers";
 import Opportunities from "./pages/Opportunities";
@@ -127,16 +129,11 @@ function AppRoutes() {
       <Route path="/citizen" element={<ProtectedRoute roles={["citizen"]}><CitizenDashboard /></ProtectedRoute>} />
       <Route path="/citizen/directory" element={<ProtectedRoute roles={["citizen"]}><Directory embedded /></ProtectedRoute>} />
       <Route path="/citizen/directory/:id" element={<ProtectedRoute roles={["citizen"]}><StartupDetail embedded /></ProtectedRoute>} />
-      <Route
-        path="/citizen/builders"
-        element={
-          <ProtectedRoute roles={["citizen"]}>
-            <BuildersDirectory embedded />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/citizen/builders" element={<ProtectedRoute roles={["citizen"]}><CitizenBuilders /></ProtectedRoute>} />
       <Route path="/citizen/opportunities" element={<ProtectedRoute roles={["citizen"]}><Opportunities embedded /></ProtectedRoute>} />
 
+      {/* Admin: analytics first */}
+      <Route path="/admin/analytics" element={<ProtectedRoute roles={["admin"]}><AdminAnalytics /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute roles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
       <Route path="/admin/cases/:id" element={<ProtectedRoute roles={["admin"]}><AdminCaseDetail /></ProtectedRoute>} />
       <Route path="/admin/users" element={<ProtectedRoute roles={["admin"]}><AdminUsers /></ProtectedRoute>} />

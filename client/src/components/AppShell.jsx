@@ -52,7 +52,7 @@ const NAV = {
     { to: "/investor/opportunities", label: "Post jobs", icon: Briefcase },
     { to: "/investor/browse-opportunities", label: "All opportunities", icon: Shield },
   ],
-  citizen: [
+   citizen: [
     { to: "/citizen", label: "Home", icon: LayoutDashboard, end: true },
     { to: "/citizen/directory", label: "Startups", icon: Building2 },
     { to: "/citizen/builders", label: "Builders", icon: Network },
