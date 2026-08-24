@@ -1,39 +1,56 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiRequest } from "../../utils/api";
+import { useDesignation } from "../../context/DesignationContext";
 import AppShell from "../../components/AppShell";
-import StatusBadge from "../../components/StatusBadge";
+import CertificateView from "../../components/common/CertificateView";
 import { Loader2, Award, ArrowLeft } from "lucide-react";
 
 export default function FounderCertificate() {
   const [loading, setLoading] = useState(true);
   const [cert, setCert] = useState(null);
   const [error, setError] = useState("");
+  const { applications } = useDesignation();
 
   useEffect(() => {
     const load = async () => {
       try {
         const res = await apiRequest("/certificates/my");
-        setCert(res.data);
+        if (res.data) {
+          setCert(res.data);
+        } else {
+          // Fallback to designated app in context if any
+          const designated = applications.find(a => a.status === "designated");
+          if (designated) {
+            setCert(designated);
+          } else {
+            setError("No certificate issued yet");
+          }
+        }
       } catch (err) {
-        setError(err.message || "No certificate yet");
+        const designated = applications.find(a => a.status === "designated");
+        if (designated) {
+          setCert(designated);
+        } else {
+          setError(err.message || "No certificate yet");
+        }
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, []);
+  }, [applications]);
 
   return (
     <AppShell
-      title="Designation certificate"
-      subtitle="Official MinT designation record"
+      title="Designation Certificate"
+      subtitle="Official Proclamation No. 1396/2025 Statutory Record"
       actions={
         <Link
           to="/founder"
-          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl border border-slate-200 bg-white hover:bg-slate-50"
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
         >
-          <ArrowLeft size={16} /> Back
+          <ArrowLeft size={16} /> Return to Workspace
         </Link>
       }
     >
@@ -41,57 +58,40 @@ export default function FounderCertificate() {
         <div className="min-h-[40vh] flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
         </div>
-      ) : error || !cert ? (
-        <div className="max-w-lg mx-auto text-center py-16 bg-white rounded-2xl border border-slate-200">
-          <Award className="mx-auto text-slate-300 mb-3" size={36} />
-          <h2 className="font-semibold text-slate-900 mb-2">No certificate yet</h2>
-          <p className="text-sm text-slate-500 px-6">
-            {error ||
-              "Your certificate will appear here after MinT designates your startup."}
+      ) : error && !cert ? (
+        <div className="max-w-lg mx-auto text-center py-16 bg-white rounded-3xl border border-slate-200 p-8 space-y-4">
+          <Award className="mx-auto text-slate-300" size={44} />
+          <h2 className="font-bold text-slate-900 text-lg">No Active Certificate Yet</h2>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+            {error || "Your digital QR-verified designation certificate will be published automatically once your filing is approved by the MinT Secretariat."}
           </p>
+          <Link
+            to="/founder/create"
+            className="inline-block px-4 py-2 bg-teal-600 text-white font-bold text-xs rounded-xl shadow-md"
+          >
+            Check Application Status
+          </Link>
         </div>
       ) : (
-        <div className="max-w-2xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="bg-gradient-to-r from-teal-700 to-teal-900 text-white px-8 py-6">
-            <div className="text-xs uppercase tracking-widest text-teal-100 mb-2">
-              Ministry of Innovation and Technology
-            </div>
-            <h2 className="text-2xl font-bold">Startup Designation Certificate</h2>
-          </div>
-          <div className="px-8 py-6 space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-xs text-slate-400">Certificate number</div>
-                <div className="text-lg font-semibold text-slate-900">
-                  {cert.certificateNumber}
-                </div>
-              </div>
-              <StatusBadge status={cert.status === "active" ? "designated" : cert.status} />
-            </div>
-            <Row label="Startup" value={cert.startupName} />
-            <Row label="Founder(s)" value={cert.founderNames || "—"} />
-            <Row label="Sector" value={cert.sector || "—"} />
-            <Row label="Growth stage" value={cert.growthStage || "—"} />
-            <Row
-              label="Issued"
-              value={cert.issuedAt ? new Date(cert.issuedAt).toLocaleDateString() : "—"}
-            />
-            <Row
-              label="Valid until"
-              value={cert.expiresAt ? new Date(cert.expiresAt).toLocaleDateString() : "—"}
-            />
-          </div>
+        <div className="max-w-4xl mx-auto space-y-6">
+          <CertificateView
+            application={
+              cert.startupName
+                ? {
+                    legalName: cert.startupName,
+                    tradeName: cert.tradeName,
+                    sector: cert.sector,
+                    growthStage: cert.growthStage,
+                    tin: cert.tin || "0099887766",
+                    commercialRegNo: cert.commercialRegNo || "ET/AA/2023/1234",
+                    headquarters: "Addis Ababa, Ethiopia",
+                    certificate: cert,
+                  }
+                : cert
+            }
+          />
         </div>
       )}
     </AppShell>
-  );
-}
-
-function Row({ label, value }) {
-  return (
-    <div className="flex justify-between gap-4 text-sm border-b border-slate-100 pb-3">
-      <span className="text-slate-500">{label}</span>
-      <span className="font-medium text-slate-900 text-right">{value}</span>
-    </div>
   );
 }

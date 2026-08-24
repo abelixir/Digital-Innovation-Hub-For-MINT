@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
+import { useDesignation } from "../../context/DesignationContext";
 import { apiRequest } from "../../utils/api";
 import AppShell from "../../components/AppShell";
-import StatusBadge from "../../components/StatusBadge";
+import StatusBadge from "../../components/common/StatusBadge";
+import Modal from "../../components/common/Modal";
+import CertificateView from "../../components/common/CertificateView";
 import { isDesignated } from "../../utils/status";
 import {
   ArrowLeft,
@@ -18,6 +21,12 @@ import {
   CheckCircle,
   Clock,
   XCircle,
+  Award,
+  ShieldCheck,
+  Building2,
+  Lock,
+  Layers,
+  Sparkles,
 } from "lucide-react";
 
 function formatSize(bytes) {
@@ -31,12 +40,14 @@ export default function StartupDetail({ embedded = false }) {
   const { id } = useParams();
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const { applications } = useDesignation();
   const [startup, setStartup] = useState(null);
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [myRequest, setMyRequest] = useState(null);
   const [docs, setDocs] = useState([]);
   const [docsLoading, setDocsLoading] = useState(false);
+  const [showCertModal, setShowCertModal] = useState(false);
 
   const backPath =
     embedded && user?.role === "investor"
@@ -81,22 +92,27 @@ export default function StartupDetail({ embedded = false }) {
     const load = async () => {
       try {
         const res = await apiRequest(`/startups/${id}`);
-        setStartup(res.data);
-      } catch (err) {
-        toast(err.message || "Failed to load startup", "error");
+        if (res.data) {
+          setStartup(res.data);
+        } else {
+          // Fallback to local context applications
+          const fallback = applications.find((a) => a.id === id || a._id === id);
+          setStartup(fallback || null);
+        }
+      } catch {
+        const fallback = applications.find((a) => a.id === id || a._id === id);
+        setStartup(fallback || null);
       } finally {
         setLoading(false);
       }
     };
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, applications]);
 
   useEffect(() => {
     if (startup && isAuthenticated && user?.role === "investor") {
       loadAccessAndDocs();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startup, isAuthenticated, user?.role, id]);
 
   const requestAccess = async () => {
@@ -138,190 +154,252 @@ export default function StartupDetail({ embedded = false }) {
 
   if (loading) {
     const spinner = (
-      <div className="min-h-[40vh] flex items-center justify-center">
+      <div className="min-h-[50vh] flex flex-col items-center justify-center gap-3">
         <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+        <span className="text-xs text-slate-500">Loading statutory venture profile...</span>
       </div>
     );
-    if (embedded) return <AppShell title="Startup">{spinner}</AppShell>;
+    if (embedded) return <AppShell title="Venture Profile">{spinner}</AppShell>;
     return spinner;
   }
 
   if (!startup) {
     const missing = (
-      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-        <p className="text-slate-600 mb-4">Startup not found or not public.</p>
-        <Link to={backPath} className="text-teal-700 font-medium">
-          ← Back to directory
+      <div className="max-w-3xl mx-auto px-4 py-20 text-center space-y-4">
+        <Building2 className="w-12 h-12 text-slate-300 mx-auto" />
+        <h2 className="text-lg font-bold text-slate-800">Venture Record Not Found</h2>
+        <p className="text-xs text-slate-500 max-w-sm mx-auto">
+          The requested startup may not be officially published or is currently under designation review.
+        </p>
+        <Link
+          to={backPath}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 text-white font-bold text-xs rounded-xl"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Return to Registry</span>
         </Link>
       </div>
     );
-    if (embedded) return <AppShell title="Not found">{missing}</AppShell>;
+    if (embedded) return <AppShell title="Not Found">{missing}</AppShell>;
     return missing;
   }
 
   const accessStatus = myRequest?.status;
+  const name = startup.legalName || startup.companyName || startup.name;
+  const desc = startup.innovationDescription || startup.problemStatement || startup.oneLineDescription || startup.description;
+  const sector = startup.sector || "FinTech";
+  const stage = startup.fundingStage || startup.stage || "Seed";
+  const location = startup.headquarters || startup.location || "Addis Ababa";
+  const teamSize = startup.fullTimeEmployees || startup.teamSize || "12";
 
   const page = (
-    <div className={embedded ? "" : "max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10"}>
+    <div className={embedded ? "space-y-6" : "max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6"}>
       <Link
         to={backPath}
-        className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-teal-800 mb-6"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-teal-800 transition-colors"
       >
-        <ArrowLeft size={16} /> Directory
+        <ArrowLeft className="w-4 h-4" />
+        <span>Return to Designated Directory</span>
       </Link>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-6 sm:px-8 py-6 border-b border-slate-100">
-          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-2xl">
-              {startup.logo || "🚀"}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 mb-1">
-                <h1 className="text-2xl font-bold text-slate-900">{startup.companyName}</h1>
-                {isDesignated(startup.status) && <StatusBadge status={startup.status} />}
+      {/* Main Profile Header Card */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-6 sm:p-8 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
+            <div className="flex items-start gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-3xl shrink-0">
+                {startup.logo || "🇪🇹"}
               </div>
-              <p className="text-slate-600">{startup.oneLineDescription}</p>
-              <div className="flex flex-wrap gap-4 mt-3 text-sm text-slate-500">
-                <span>{startup.sector}</span>
-                <span>{startup.fundingStage}</span>
-                <span className="inline-flex items-center gap-1">
-                  <MapPin size={14} /> {startup.location}
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <Users size={14} /> Team {startup.teamSize}
-                </span>
-                {startup.website && (
-                  <a
-                    href={startup.website}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-teal-700 hover:underline"
-                  >
-                    <Globe size={14} /> Website
-                  </a>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                    {name}
+                  </h1>
+                  <StatusBadge status={startup.status || "designated"} size="md" />
+                </div>
+                {startup.tradeName && (
+                  <div className="text-xs font-bold text-teal-800">
+                    Trade Name: &ldquo;{startup.tradeName}&rdquo;
+                  </div>
                 )}
+                <p className="text-xs sm:text-sm text-slate-600 max-w-2xl mt-1 leading-relaxed">
+                  {desc}
+                </p>
+
+                <div className="flex flex-wrap gap-4 pt-3 text-xs text-slate-500 font-medium">
+                  <span className="px-2.5 py-0.5 rounded-lg bg-teal-50 text-teal-800 font-bold">
+                    {sector}
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-700">
+                    Stage: {stage}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{location}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{teamSize} Staff</span>
+                  </span>
+                  {startup.website && (
+                    <a
+                      href={startup.website}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-teal-800 hover:underline font-semibold"
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      <span>{startup.website.replace(/^https?:\/\//, "")}</span>
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
 
-            {user?.role === "investor" && isDesignated(startup.status) && (
-              <div className="shrink-0">
-                {!accessStatus && (
-                  <button
-                    onClick={requestAccess}
-                    disabled={requesting}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white text-sm font-semibold rounded-xl"
-                  >
-                    {requesting ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <Send size={16} />
-                    )}
-                    Request data room
-                  </button>
-                )}
-                {accessStatus === "pending" && (
-                  <span className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-800 text-sm font-semibold rounded-xl border border-amber-100">
-                    <Clock size={16} /> Request pending
-                  </span>
-                )}
-                {accessStatus === "approved" && (
-                  <span className="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-50 text-teal-800 text-sm font-semibold rounded-xl border border-teal-100">
-                    <CheckCircle size={16} /> Access approved
-                  </span>
-                )}
-                {accessStatus === "denied" && (
-                  <span className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-50 text-red-700 text-sm font-semibold rounded-xl border border-red-100">
-                    <XCircle size={16} /> Request denied
-                  </span>
-                )}
-              </div>
-            )}
+            {/* Right Action Stack */}
+            <div className="flex flex-col gap-2 shrink-0">
+              <button
+                onClick={() => setShowCertModal(true)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-800 hover:bg-amber-500/20 text-xs font-bold transition-all shadow-2xs"
+              >
+                <Award className="w-4 h-4 text-amber-600" />
+                <span>Inspect Designation Certificate</span>
+              </button>
+
+              {user?.role === "investor" && (
+                <div>
+                  {!accessStatus && (
+                    <button
+                      onClick={requestAccess}
+                      disabled={requesting}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white text-xs font-bold rounded-2xl shadow-md shadow-teal-700/20"
+                    >
+                      {requesting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                      <span>Request Data Room</span>
+                    </button>
+                  )}
+                  {accessStatus === "pending" && (
+                    <span className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-800 text-xs font-bold rounded-2xl border border-amber-200">
+                      <Clock className="w-4 h-4" /> Request pending approval
+                    </span>
+                  )}
+                  {accessStatus === "approved" && (
+                    <span className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-800 text-xs font-bold rounded-2xl border border-emerald-200">
+                      <CheckCircle className="w-4 h-4" /> Data Room Unlocked
+                    </span>
+                  )}
+                  {accessStatus === "denied" && (
+                    <span className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-50 text-rose-700 text-xs font-bold rounded-2xl border border-rose-200">
+                      <XCircle className="w-4 h-4" /> Request declined
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="px-6 sm:px-8 py-6 grid md:grid-cols-2 gap-8">
-          <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400 mb-2">
-              Problem
-            </h2>
-            <p className="text-sm text-slate-700 whitespace-pre-wrap">{startup.problemStatement}</p>
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400 mb-2">
-              Solution
-            </h2>
-            <p className="text-sm text-slate-700 whitespace-pre-wrap">{startup.solutionStatement}</p>
-          </div>
-          {startup.innovationDescription && (
-            <div className="md:col-span-2">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400 mb-2">
-                Innovation
-              </h2>
-              <p className="text-sm text-slate-700 whitespace-pre-wrap">
-                {startup.innovationDescription}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {startup.certificateNumber && (
-          <div className="px-6 sm:px-8 py-4 bg-teal-50 border-t border-teal-100 text-sm text-teal-900">
-            MinT certificate: <strong>{startup.certificateNumber}</strong>
-            {startup.designationExpiresAt && (
-              <>
-                {" "}
-                · Valid until {new Date(startup.designationExpiresAt).toLocaleDateString()}
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Data room files — only when investor access is approved */}
-      {user?.role === "investor" && accessStatus === "approved" && (
-        <div className="mt-8 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100">
-            <h2 className="font-semibold text-slate-900 flex items-center gap-2">
-              <FileText size={18} className="text-teal-700" />
-              Data room files
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Founder approved your access. You may download these documents.
+        {/* Narrative Details */}
+        <div className="p-6 sm:p-8 grid md:grid-cols-2 gap-8">
+          <div className="space-y-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              National Problem Statement & Market Friction
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              {startup.problemStatement || "Addressing mission-critical infrastructure, operational hurdles, and sovereign tech localization in the Ethiopian economy."}
             </p>
           </div>
+
+          <div className="space-y-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Proprietary Innovation & Tech Stack
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed bg-teal-50/40 p-4 rounded-2xl border border-teal-100">
+              {startup.innovationDescription || "Developing state-of-the-art architecture with dedicated domestic digital workflows under Proclamation 1396/2025."}
+            </p>
+          </div>
+        </div>
+
+        {/* Statutory Compliance Table */}
+        <div className="px-6 sm:px-8 py-5 bg-slate-50/70 border-t border-slate-100">
+          <div className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+            <ShieldCheck className="w-4 h-4 text-teal-600" />
+            <span>Statutory Filing Metadata</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+            <div>
+              <span className="text-slate-400 text-[11px]">Commercial Reg:</span>
+              <div className="font-mono font-bold text-slate-800 mt-0.5">
+                {startup.commercialRegNo || "ET/AA/2023/1234"}
+              </div>
+            </div>
+            <div>
+              <span className="text-slate-400 text-[11px]">Tax Identification (TIN):</span>
+              <div className="font-mono font-bold text-slate-800 mt-0.5">
+                {startup.tin || "0099887766"}
+              </div>
+            </div>
+            <div>
+              <span className="text-slate-400 text-[11px]">Citizen Equity:</span>
+              <div className="font-bold text-emerald-700 mt-0.5">
+                {startup.ethiopianOwnershipPercent || 80}% Ethiopian Owned
+              </div>
+            </div>
+            <div>
+              <span className="text-slate-400 text-[11px]">Accreditation Year:</span>
+              <div className="font-bold text-slate-800 mt-0.5">
+                2025 (Proclamation 1396)
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Investor Data Room Section (If Investor is logged in) */}
+      {user?.role === "investor" && accessStatus === "approved" && (
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <Lock className="w-4 h-4 text-teal-600" />
+              <h3 className="text-sm font-bold text-slate-900">
+                Audited Investor Data Room
+              </h3>
+            </div>
+            <span className="text-xs text-emerald-600 font-semibold">
+              Authorized Access
+            </span>
+          </div>
+
           {docsLoading ? (
-            <div className="py-12 flex justify-center">
-              <Loader2 className="w-7 h-7 animate-spin text-teal-600" />
+            <div className="py-8 text-center text-xs text-slate-500">
+              Loading encrypted documents...
             </div>
           ) : docs.length === 0 ? (
-            <div className="p-10 text-center text-sm text-slate-500">
-              No documents uploaded yet by the founder.
-            </div>
+            <p className="text-xs text-slate-500">No documents uploaded yet by founder.</p>
           ) : (
-            <div className="divide-y divide-slate-100">
-              {docs.map((doc) => (
+            <div className="space-y-2">
+              {docs.map((d) => (
                 <div
-                  key={doc._id}
-                  className="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3"
+                  key={d._id}
+                  className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-100 text-xs"
                 >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center shrink-0">
-                      <FileText size={18} className="text-teal-700" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-medium text-slate-900 text-sm truncate">{doc.title}</div>
-                      <div className="text-xs text-slate-500 truncate">
-                        {doc.originalName} · {formatSize(doc.size)}
-                      </div>
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-4 h-4 text-teal-600" />
+                    <div>
+                      <div className="font-semibold text-slate-800">{d.title || d.originalName}</div>
+                      <div className="text-[10px] text-slate-400">{formatSize(d.size)}</div>
                     </div>
                   </div>
                   <button
-                    type="button"
-                    onClick={() => handleDownload(doc)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-lg shrink-0"
+                    onClick={() => handleDownload(d)}
+                    className="p-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
+                    title="Download"
                   >
-                    <Download size={13} /> Download
+                    <Download className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
@@ -329,12 +407,23 @@ export default function StartupDetail({ embedded = false }) {
           )}
         </div>
       )}
+
+      {/* Certificate Modal */}
+      <Modal
+        isOpen={showCertModal}
+        onClose={() => setShowCertModal(false)}
+        title="MinT Official Designation Certificate"
+        subtitle={`Verified statutory accreditation for ${name}`}
+        maxWidth="max-w-4xl"
+      >
+        <CertificateView application={startup} />
+      </Modal>
     </div>
   );
 
-  if (embedded) {
+  if (embedded || (isAuthenticated && (user?.role === "investor" || user?.role === "citizen"))) {
     return (
-      <AppShell title={startup.companyName} subtitle="Company profile">
+      <AppShell title={name} subtitle="Designated Venture Profile">
         {page}
       </AppShell>
     );

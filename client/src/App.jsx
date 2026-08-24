@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
+import { DesignationProvider } from "./context/DesignationContext";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
@@ -29,6 +30,7 @@ import ReviewerDashboard from "./pages/reviewer/ReviewerDashboard";
 import ReviewerBuilders from "./pages/reviewer/ReviewerBuilders";
 import ModeratorStartups from "./pages/moderator/ModeratorStartups";
 import ModeratorBuilders from "./pages/moderator/ModeratorBuilders";
+import BuilderApplication from "./pages/builder/BuilderApplication";
 
 function roleHome(role) {
   if (role === "founder") return "/founder";
@@ -114,25 +116,28 @@ function AppRoutes() {
       <Route path="/directory/:id" element={<PublicLayout><StartupDetail /></PublicLayout>} />
       <Route path="/builders" element={<PublicLayout><BuildersDirectory /></PublicLayout>} />
 
+      {/* Founder */}
       <Route path="/founder" element={<ProtectedRoute roles={["founder"]}><FounderDashboard /></ProtectedRoute>} />
       <Route path="/founder/create" element={<ProtectedRoute roles={["founder"]}><CreateStartup /></ProtectedRoute>} />
       <Route path="/founder/data-room" element={<ProtectedRoute roles={["founder"]}><DataRoom /></ProtectedRoute>} />
       <Route path="/founder/certificate" element={<ProtectedRoute roles={["founder"]}><FounderCertificate /></ProtectedRoute>} />
       <Route path="/founder/opportunities" element={<ProtectedRoute roles={["founder"]}><Opportunities embedded /></ProtectedRoute>} />
 
+      {/* Investor */}
       <Route path="/investor" element={<ProtectedRoute roles={["investor"]}><InvestorDashboard /></ProtectedRoute>} />
       <Route path="/investor/directory" element={<ProtectedRoute roles={["investor"]}><Directory embedded /></ProtectedRoute>} />
       <Route path="/investor/directory/:id" element={<ProtectedRoute roles={["investor"]}><StartupDetail embedded /></ProtectedRoute>} />
       <Route path="/investor/opportunities" element={<ProtectedRoute roles={["investor"]}><InvestorOpportunities /></ProtectedRoute>} />
       <Route path="/investor/browse-opportunities" element={<ProtectedRoute roles={["investor"]}><Opportunities embedded /></ProtectedRoute>} />
 
+      {/* Citizen */}
       <Route path="/citizen" element={<ProtectedRoute roles={["citizen"]}><CitizenDashboard /></ProtectedRoute>} />
       <Route path="/citizen/directory" element={<ProtectedRoute roles={["citizen"]}><Directory embedded /></ProtectedRoute>} />
       <Route path="/citizen/directory/:id" element={<ProtectedRoute roles={["citizen"]}><StartupDetail embedded /></ProtectedRoute>} />
       <Route path="/citizen/builders" element={<ProtectedRoute roles={["citizen"]}><CitizenBuilders /></ProtectedRoute>} />
       <Route path="/citizen/opportunities" element={<ProtectedRoute roles={["citizen"]}><Opportunities embedded /></ProtectedRoute>} />
 
-      {/* Admin: analytics first */}
+      {/* Admin */}
       <Route path="/admin/analytics" element={<ProtectedRoute roles={["admin"]}><AdminAnalytics /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute roles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
       <Route path="/admin/cases/:id" element={<ProtectedRoute roles={["admin"]}><AdminCaseDetail /></ProtectedRoute>} />
@@ -140,16 +145,21 @@ function AppRoutes() {
       <Route path="/admin/opportunities" element={<ProtectedRoute roles={["admin"]}><AdminOpportunities /></ProtectedRoute>} />
       <Route path="/admin/builders" element={<ProtectedRoute roles={["admin"]}><AdminBuilders /></ProtectedRoute>} />
 
+      {/* Reviewer */}
       <Route path="/reviewer" element={<ProtectedRoute roles={["reviewer"]}><ReviewerDashboard /></ProtectedRoute>} />
       <Route path="/reviewer/cases/:id" element={<ProtectedRoute roles={["reviewer"]}><AdminCaseDetail /></ProtectedRoute>} />
       <Route path="/reviewer/opportunities" element={<ProtectedRoute roles={["reviewer"]}><Opportunities embedded /></ProtectedRoute>} />
       <Route path="/reviewer/builders" element={<ProtectedRoute roles={["reviewer"]}><ReviewerBuilders /></ProtectedRoute>} />
 
+      {/* Moderator */}
       <Route path="/moderator" element={<ProtectedRoute roles={["moderator"]}><AdminOpportunities /></ProtectedRoute>} />
       <Route path="/moderator/startups" element={<ProtectedRoute roles={["moderator"]}><ModeratorStartups /></ProtectedRoute>} />
       <Route path="/moderator/builders" element={<ProtectedRoute roles={["moderator"]}><ModeratorBuilders /></ProtectedRoute>} />
       <Route path="/moderator/browse" element={<ProtectedRoute roles={["moderator"]}><Opportunities embedded /></ProtectedRoute>} />
 
+      {/* Ecosystem Builder */}
+      <Route path="/builder" element={<ProtectedRoute roles={["ecosystem_builder"]}><FounderDashboard /></ProtectedRoute>} />
+      <Route path="/builder/apply" element={<ProtectedRoute roles={["ecosystem_builder"]}><BuilderApplication /></ProtectedRoute>} />
       <Route path="/builder/opportunities" element={<ProtectedRoute roles={["ecosystem_builder"]}><Opportunities embedded /></ProtectedRoute>} />
 
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
@@ -175,9 +185,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <ToastProvider>
-          <AppRoutes />
-        </ToastProvider>
+        <DesignationProvider>
+          <ToastProvider>
+            <AppRoutes />
+          </ToastProvider>
+        </DesignationProvider>
       </AuthProvider>
     </BrowserRouter>
   );
