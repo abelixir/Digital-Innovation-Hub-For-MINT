@@ -17,12 +17,8 @@ import {
   Megaphone,
   Network,
   BarChart3,
-  Search,
-  Bell,
   ChevronRight,
-  Sparkles,
   ExternalLink,
-  Layers,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -99,19 +95,22 @@ export default function AppShell({ title, subtitle, children, actions }) {
     if (switchRole) {
       switchRole(newRole);
     } else {
-      // Local demo fallback
-      const updatedUser = { ...(user || { fullName: "Abebe Bikila", email: "user@mint.gov.et" }), role: newRole };
+      const updatedUser = {
+        ...(user || { fullName: "Abebe Bikila", email: "user@mint.gov.et" }),
+        role: newRole,
+      };
       localStorage.setItem("dih_user", JSON.stringify(updatedUser));
       window.location.reload();
     }
     setShowRoleSwitcher(false);
   };
 
+  // Larger readable nav links
   const linkClass = ({ isActive }) =>
-    `group flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+    `group flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
       isActive
         ? "bg-teal-600 text-white shadow-md shadow-teal-700/20 font-bold"
-        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+        : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
     }`;
 
   const SidebarContent = (
@@ -119,46 +118,45 @@ export default function AppShell({ title, subtitle, children, actions }) {
       {/* Brand Header */}
       <div className="px-5 py-5 border-b border-slate-200/80 bg-slate-50/50">
         <Link to="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-teal-600 to-teal-800 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-teal-900/20 group-hover:scale-105 transition-transform">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-teal-600 to-teal-800 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-teal-900/20 group-hover:scale-105 transition-transform">
             MinT
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-xs font-extrabold text-slate-900 tracking-tight leading-none">
+            <div className="text-sm font-extrabold text-slate-900 tracking-tight leading-tight">
               Federal Democratic Republic
             </div>
-            <div className="text-[11px] font-bold text-teal-800 tracking-tight leading-none mt-1">
+            <div className="text-xs font-bold text-teal-800 tracking-tight leading-tight mt-0.5">
               Ministry of Innovation & Tech
             </div>
-            <div className="text-[10px] text-slate-500 font-medium mt-0.5">
+            <div className="text-xs text-slate-500 font-medium mt-0.5">
               Proclamation No. 1396/2025
             </div>
           </div>
         </Link>
       </div>
 
-      {/* Role Badge Indicator */}
+      {/* Role Badge */}
       <div className="px-5 py-3 bg-slate-100/60 border-b border-slate-200/60 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
             Workspace
           </span>
         </div>
 
         <button
           onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
-          className="text-[10px] font-bold text-teal-800 hover:underline flex items-center gap-0.5 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200"
+          className="text-xs font-bold text-teal-800 hover:underline flex items-center gap-0.5 bg-teal-50 px-2.5 py-1 rounded-md border border-teal-200"
           title="Switch workspace role"
         >
           <span className="capitalize">{currentRole.replace("_", " ")}</span>
-          <ChevronRight className="w-3 h-3" />
+          <ChevronRight className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      {/* Quick Role Switcher Dropdown */}
       {showRoleSwitcher && (
-        <div className="p-3 bg-slate-50 border-b border-slate-200 space-y-1 text-xs">
-          <div className="text-[10px] font-bold uppercase text-slate-400 mb-1 px-1">
+        <div className="p-3 bg-slate-50 border-b border-slate-200 space-y-1 text-sm">
+          <div className="text-xs font-bold uppercase text-slate-400 mb-1 px-1">
             Switch Portal Perspective:
           </div>
           <div className="grid grid-cols-2 gap-1.5">
@@ -166,7 +164,7 @@ export default function AppShell({ title, subtitle, children, actions }) {
               <button
                 key={r.id}
                 onClick={() => handleRoleChange(r.id)}
-                className={`px-2 py-1.5 rounded-lg text-left font-semibold text-[11px] border transition-all ${
+                className={`px-2.5 py-2 rounded-lg text-left font-semibold text-xs border transition-all ${
                   currentRole === r.id
                     ? "bg-teal-600 text-white border-teal-600 font-bold"
                     : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
@@ -179,9 +177,9 @@ export default function AppShell({ title, subtitle, children, actions }) {
         </div>
       )}
 
-      {/* Navigation Links */}
+      {/* Navigation */}
       <nav className="flex-1 px-3.5 py-4 space-y-1.5 overflow-y-auto">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 pb-1">
+        <div className="text-xs font-bold uppercase tracking-wider text-slate-400 px-3 pb-1">
           Main Navigation
         </div>
         {items.map((item) => (
@@ -192,29 +190,29 @@ export default function AppShell({ title, subtitle, children, actions }) {
             className={linkClass}
             onClick={() => setOpen(false)}
           >
-            <item.icon className="w-4 h-4 shrink-0 transition-transform group-hover:scale-110" />
+            <item.icon className="w-5 h-5 shrink-0 transition-transform group-hover:scale-110" />
             <span className="truncate">{item.label}</span>
           </NavLink>
         ))}
 
         <div className="pt-4 mt-4 border-t border-slate-200/80">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 pb-1">
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-400 px-3 pb-1">
             Public Registry
           </div>
           <NavLink
             to="/directory"
-            className="flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900"
             onClick={() => setOpen(false)}
           >
-            <Building2 className="w-4 h-4 text-slate-400" />
+            <Building2 className="w-5 h-5 text-slate-400" />
             <span>Designated Directory</span>
           </NavLink>
           <NavLink
             to="/builders"
-            className="flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900"
             onClick={() => setOpen(false)}
           >
-            <Network className="w-4 h-4 text-slate-400" />
+            <Network className="w-5 h-5 text-slate-400" />
             <span>Ecosystem Builders</span>
           </NavLink>
           <NavLink
@@ -222,23 +220,23 @@ export default function AppShell({ title, subtitle, children, actions }) {
             className={linkClass}
             onClick={() => setOpen(false)}
           >
-            <User className="w-4 h-4 shrink-0" />
+            <User className="w-5 h-5 shrink-0" />
             <span>Account Profile</span>
           </NavLink>
         </div>
       </nav>
 
-      {/* User Footer Summary */}
+      {/* User footer */}
       <div className="p-3.5 border-t border-slate-200/80 bg-slate-50/50">
         <div className="flex items-center gap-3 px-2 py-2 mb-2 rounded-xl bg-white border border-slate-200/70">
-          <div className="w-8 h-8 rounded-lg bg-teal-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-teal-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
             {user?.fullName ? user.fullName.charAt(0).toUpperCase() : "U"}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-xs font-bold text-slate-900 truncate">
+            <div className="text-sm font-bold text-slate-900 truncate">
               {user?.fullName || "Abebe Bikila"}
             </div>
-            <div className="text-[10px] text-slate-500 truncate">
+            <div className="text-xs text-slate-500 truncate">
               {user?.email || "user@mint.gov.et"}
             </div>
           </div>
@@ -246,9 +244,9 @@ export default function AppShell({ title, subtitle, children, actions }) {
 
         <button
           onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors"
         >
-          <LogOut className="w-3.5 h-3.5" />
+          <LogOut className="w-4 h-4" />
           <span>Sign out of Portal</span>
         </button>
       </div>
@@ -256,13 +254,13 @@ export default function AppShell({ title, subtitle, children, actions }) {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      {/* Desktop Left-Side Nav Sidebar */}
-      <aside className="hidden lg:flex w-64 flex-col fixed inset-y-0 left-0 z-30 shadow-xs">
+    <div className="min-h-screen bg-slate-50 flex text-base">
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex w-72 flex-col fixed inset-y-0 left-0 z-30 shadow-xs">
         {SidebarContent}
       </aside>
 
-      {/* Mobile Drawer */}
+      {/* Mobile drawer */}
       {open && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div
@@ -275,12 +273,10 @@ export default function AppShell({ title, subtitle, children, actions }) {
         </div>
       )}
 
-      {/* Main Content Pane */}
-      <div className="flex-1 lg:pl-64 min-w-0 flex flex-col">
-        {/* Sticky Top Header */}
+      {/* Main content */}
+      <div className="flex-1 lg:pl-72 min-w-0 flex flex-col">
         <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
-          <div className="px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-            {/* Mobile Menu Trigger & Title */}
+          <div className="px-4 sm:px-6 lg:px-8 h-16 sm:h-[4.25rem] flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
               <button
                 className="lg:hidden p-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600"
@@ -290,27 +286,24 @@ export default function AppShell({ title, subtitle, children, actions }) {
               </button>
 
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-base sm:text-lg font-extrabold text-slate-900 truncate tracking-tight">
-                    {title}
-                  </h1>
-                </div>
+                <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 truncate tracking-tight">
+                  {title}
+                </h1>
                 {subtitle && (
-                  <p className="text-xs text-slate-500 truncate hidden sm:block">
+                  <p className="text-sm text-slate-500 truncate hidden sm:block">
                     {subtitle}
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Actions & Global Shortcuts */}
             <div className="flex items-center gap-3 shrink-0">
               <Link
                 to="/"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-colors"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-sm font-semibold text-slate-700 transition-colors"
               >
                 <span>Public Portal</span>
-                <ExternalLink className="w-3 h-3 text-slate-400" />
+                <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
               </Link>
 
               {actions && <div className="flex items-center gap-2">{actions}</div>}
@@ -318,8 +311,7 @@ export default function AppShell({ title, subtitle, children, actions }) {
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-7xl w-full mx-auto text-sm sm:text-base">
           {children}
         </main>
       </div>
