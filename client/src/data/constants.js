@@ -1,6 +1,3 @@
-
-
-cat > src/data/constants.js << 'EOF'
 export const SECTORS = [
   "FinTech",
   "AgriTech",
@@ -45,4 +42,3 @@ export const COUNTRIES = [
   "United Arab Emirates",
   "Other",
 ];
-EOF
