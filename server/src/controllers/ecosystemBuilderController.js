@@ -132,7 +132,6 @@ exports.getAdminBuilders = async (req, res) => {
   }
 };
 
-// Reviewer / admin: mark under review (notes required, same as startups)
 exports.startReviewBuilder = async (req, res) => {
   try {
     const builder = await EcosystemBuilder.findById(req.params.id);
@@ -182,7 +181,6 @@ exports.startReviewBuilder = async (req, res) => {
   }
 };
 
-// Admin only: designate
 exports.approveBuilder = async (req, res) => {
   try {
     const builder = await EcosystemBuilder.findById(req.params.id).populate(
@@ -244,7 +242,6 @@ exports.approveBuilder = async (req, res) => {
   }
 };
 
-// Admin only: reject
 exports.rejectBuilder = async (req, res) => {
   try {
     const builder = await EcosystemBuilder.findById(req.params.id).populate(
@@ -255,7 +252,8 @@ exports.rejectBuilder = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Not found' });
     }
 
-    const reason = (req.body?.reason || '').trim() || 'Did not meet ecosystem builder criteria';
+    const reason =
+      (req.body?.reason || '').trim() || 'Did not meet ecosystem builder criteria';
     const notes = req.body?.notes || '';
 
     builder.status = 'rejected';
@@ -299,7 +297,6 @@ exports.rejectBuilder = async (req, res) => {
   }
 };
 
-// Admin only: suspend
 exports.suspendBuilder = async (req, res) => {
   try {
     const builder = await EcosystemBuilder.findById(req.params.id).populate(
@@ -351,5 +348,64 @@ exports.suspendBuilder = async (req, res) => {
   } catch (error) {
     console.error('Suspend builder error:', error);
     res.status(500).json({ success: false, message: error.message || 'Server error' });
+  }
+};
+
+// POST /api/ecosystem-builders/:id/interest
+exports.expressInterest = async (req, res) => {
+  try {
+    const builder = await EcosystemBuilder.findById(req.params.id).populate(
+      'ownerUser',
+      'fullName email'
+    );
+
+    if (!builder || builder.status !== 'designated') {
+      return res.status(404).json({
+        success: false,
+        message: 'Designated builder not found',
+      });
+    }
+
+    const message = (req.body?.message || '').trim();
+    const fromUser = req.user;
+    const toEmail = builder.ownerUser?.email;
+
+    const safeMessage = message
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    if (toEmail) {
+      await sendEmail({
+        to: toEmail,
+        subject: `Interest from ${fromUser.fullName} – MinT portal`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color:#0d9488;">New interest via MinT Digital Portal</h2>
+            <p>Hello ${builder.ownerUser.fullName || 'Team'},</p>
+            <p>
+              <strong>${fromUser.fullName}</strong>
+              (${fromUser.email}, role: ${fromUser.role})
+              expressed interest in
+              <strong>${builder.organizationName}</strong>.
+            </p>
+            <p><strong>Message:</strong></p>
+            <p>${safeMessage || '(No message provided)'}</p>
+          </div>
+        `,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: toEmail
+        ? 'Interest sent successfully'
+        : 'Interest recorded (no owner email on file)',
+    });
+  } catch (error) {
+    console.error('Express interest error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error',
+    });
   }
 };

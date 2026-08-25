@@ -1,15 +1,14 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { apiRequest } from "../utils/api";
 
 const AuthContext = createContext(null);
-
-const API_BASE = "https://digital-innovation-hub-for-mint.onrender.com/api";
-const API_URL = `${API_BASE}/auth`;
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Restore session from storage; optionally validate later via /auth/me if available
   useEffect(() => {
     const savedUser = localStorage.getItem("dih_user");
     const savedToken = localStorage.getItem("dih_token");
@@ -27,17 +26,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
-    const res = await fetch(`${API_URL}/login`, {
+    const data = await apiRequest("/auth/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: { email, password },
     });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.message || "Login failed");
-    }
 
     setUser(data.user);
     setToken(data.token);
@@ -48,17 +40,10 @@ export function AuthProvider({ children }) {
   };
 
   const register = async (fullName, email, password, role) => {
-    const res = await fetch(`${API_URL}/register`, {
+    const data = await apiRequest("/auth/register", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fullName, email, password, role }),
+      body: { fullName, email, password, role },
     });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.message || "Registration failed");
-    }
 
     setUser(data.user);
     setToken(data.token);
@@ -69,20 +54,10 @@ export function AuthProvider({ children }) {
   };
 
   const updateProfile = async (profileData) => {
-    const res = await fetch(`${API_URL}/profile`, {
+    const data = await apiRequest("/auth/profile", {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token || localStorage.getItem("dih_token")}`,
-      },
-      body: JSON.stringify(profileData),
+      body: profileData,
     });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.message || "Failed to update profile");
-    }
 
     setUser(data.user);
     localStorage.setItem("dih_user", JSON.stringify(data.user));

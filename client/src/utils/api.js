@@ -1,8 +1,16 @@
-const API_BASE = import.meta.env.VITE_API_URL || "https://digital-innovation-hub-for-mint.onrender.com/api";
+const API_BASE =
+  import.meta.env.VITE_API_URL ||
+  "https://digital-innovation-hub-for-mint.onrender.com/api";
 
+/**
+ * Central API helper for the MinT portal.
+ * - Attaches JWT from localStorage
+ * - Clears session on 401 (expired / invalid token)
+ * - Supports JSON and FormData bodies
+ * - Supports blob downloads
+ */
 export async function apiRequest(endpoint, options = {}) {
   const token = localStorage.getItem("dih_token");
-
   const isFormData = options.body instanceof FormData;
 
   const config = {
@@ -20,7 +28,16 @@ export async function apiRequest(endpoint, options = {}) {
 
   const res = await fetch(`${API_BASE}${endpoint}`, config);
 
-  // Binary download (PDF, etc.)
+  // Session expired or invalid
+  if (res.status === 401) {
+    localStorage.removeItem("dih_token");
+    localStorage.removeItem("dih_user");
+    if (!window.location.pathname.startsWith("/login")) {
+      window.location.assign("/login");
+    }
+    throw new Error("Session expired. Please sign in again.");
+  }
+
   if (options.blob) {
     if (!res.ok) {
       let message = "Download failed";
@@ -35,11 +52,20 @@ export async function apiRequest(endpoint, options = {}) {
     return res.blob();
   }
 
-  const data = await res.json();
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error("Invalid response from server");
+  }
 
   if (!res.ok) {
     throw new Error(data.message || "Something went wrong");
   }
 
   return data;
+}
+
+export function getApiBase() {
+  return API_BASE;
 }

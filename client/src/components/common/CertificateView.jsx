@@ -1,16 +1,66 @@
-import { Shield, Award, CheckCircle2, QrCode, Download, Printer } from "lucide-react";
+import { Shield, Award, CheckCircle2, Printer } from "lucide-react";
 
+function formatDate(value) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+/**
+ * Official designation certificate display.
+ * Uses only real application/certificate fields — never invents legal data.
+ */
 export default function CertificateView({ application }) {
   if (!application) return null;
 
-  const cert = application.certificate || {
-    certificateNumber: `MINT/ET/2025/${Math.floor(10000 + Math.random() * 90000)}`,
-    issueDate: "2025-02-15",
-    expiryDate: "2028-02-14",
-    verifier: "Ministry of Innovation and Technology",
-    qrCodeData: `https://mint.gov.et/verify/${application.id || "MINT-2025"}`,
-    sealType: "Sovereign Gold Seal",
-  };
+  const cert = application.certificate || {};
+  const certificateNumber =
+    cert.certificateNumber || application.certificateNumber || null;
+
+  const issuedAt =
+    cert.issuedAt ||
+    cert.issueDate ||
+    application.designatedAt ||
+    application.verifiedAt ||
+    null;
+
+  const expiresAt =
+    cert.expiresAt ||
+    cert.expiryDate ||
+    application.designationExpiresAt ||
+    null;
+
+  const legalName =
+    application.legalName ||
+    application.startupName ||
+    application.companyName ||
+    application.name ||
+    "—";
+
+  const tradeName = application.tradeName || null;
+  const sector = application.sector || cert.sector || null;
+  const growthStage =
+    application.growthStage ||
+    application.fundingStage ||
+    cert.growthStage ||
+    null;
+  const tin = application.tin || null;
+  const commercialRegNo =
+    application.commercialRegNo || application.registrationNumber || null;
+  const headquarters =
+    application.headquarters || application.location || null;
+
+  const statusLabel =
+    application.status === "suspended"
+      ? "Suspended"
+      : application.status === "revoked"
+        ? "Revoked"
+        : "Active";
 
   const handlePrint = () => {
     window.print();
@@ -18,148 +68,154 @@ export default function CertificateView({ application }) {
 
   return (
     <div className="space-y-6">
-      {/* Official Certificate Canvas */}
-      <div className="relative p-8 sm:p-12 rounded-3xl bg-amber-50/40 dark:bg-slate-950 border-4 border-double border-amber-600/40 text-slate-900 dark:text-white shadow-xl overflow-hidden print:p-0 print:border-none print:shadow-none">
-        {/* Watermark Emblem */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] dark:opacity-[0.05] pointer-events-none">
+      <div className="relative p-8 sm:p-12 rounded-3xl bg-white border-4 border-double border-teal-700/30 text-slate-900 shadow-xl overflow-hidden print:shadow-none print:border-2">
+        <div className="absolute inset-0 flex items-center justify-center opacity-[0.04] pointer-events-none">
           <Shield className="w-96 h-96 text-slate-900" />
         </div>
 
-        {/* Certificate Border Corner Ornaments */}
-        <div className="absolute top-3 left-3 w-8 h-8 border-t-2 border-l-2 border-amber-600/60" />
-        <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-amber-600/60" />
-        <div className="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-amber-600/60" />
-        <div className="absolute bottom-3 right-3 w-8 h-8 border-b-2 border-r-2 border-amber-600/60" />
-
         <div className="relative z-10 text-center space-y-6">
-          {/* Header */}
           <div className="space-y-1.5">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-600 mb-2">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-teal-50 border border-teal-200 text-teal-800 mb-2">
               <Shield className="w-8 h-8" />
             </div>
-            <div className="text-xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400">
+            <div className="text-xs font-bold uppercase tracking-widest text-teal-800">
               Federal Democratic Republic of Ethiopia
             </div>
-            <h2 className="text-xl sm:text-2xl font-serif font-extrabold tracking-wide uppercase text-slate-900 dark:text-white">
+            <h2 className="text-xl sm:text-2xl font-serif font-extrabold tracking-wide uppercase text-slate-900">
               Ministry of Innovation and Technology
             </h2>
             <div className="text-xs font-medium text-slate-500">
-              Startup Proclamation No. 1396/2025 · Official Registry
+              Startup Proclamation No. 1396/2025 · Digital Innovation Hub
             </div>
           </div>
 
-          <div className="w-32 h-0.5 bg-gradient-to-r from-transparent via-amber-600 to-transparent mx-auto" />
+          <div className="w-32 h-0.5 bg-gradient-to-r from-transparent via-teal-600 to-transparent mx-auto" />
 
-          {/* Certificate Title */}
           <div>
             <div className="text-xs uppercase tracking-widest text-slate-500 mb-1">
-              Certificate of Official Statutory Designation
+              Certificate of Startup Designation
             </div>
-            <p className="text-xs italic text-slate-600 dark:text-slate-300 max-w-lg mx-auto">
-              This is to certify that the enterprise named below has satisfied all legal requirements and criteria under Ethiopian Startup Proclamation No. 1396/2025 and is formally designated as an official Ethiopian Technology Startup.
+            <p className="text-xs text-slate-600 max-w-lg mx-auto leading-relaxed">
+              This certifies that the enterprise named below has been reviewed
+              under Startup Proclamation No. 1396/2025 and is designated in the
+              official MinT digital registry for the validity period stated on
+              this certificate.
             </p>
           </div>
 
-          {/* Enterprise Name */}
-          <div className="py-3 px-6 rounded-2xl bg-white/80 dark:bg-slate-900/80 border border-amber-500/20 max-w-xl mx-auto backdrop-blur-sm">
-            <div className="text-2xl sm:text-3xl font-serif font-bold text-indigo-950 dark:text-indigo-200">
-              {application.legalName || application.name}
+          <div className="py-4 px-6 rounded-2xl bg-slate-50 border border-slate-200 max-w-xl mx-auto">
+            <div className="text-2xl sm:text-3xl font-serif font-bold text-slate-900">
+              {legalName}
             </div>
-            {application.tradeName && (
-              <div className="text-xs font-semibold text-amber-700 dark:text-amber-400 mt-0.5">
-                Trade Name: &ldquo;{application.tradeName}&rdquo;
+            {tradeName && (
+              <div className="text-xs font-semibold text-teal-800 mt-1">
+                Trade name: &ldquo;{tradeName}&rdquo;
               </div>
             )}
-            <div className="text-xs text-slate-500 mt-1 flex items-center justify-center gap-3">
-              <span>Sector: <strong>{application.sector}</strong></span>
-              <span>•</span>
-              <span>TIN: <strong>{application.tin || "0078493021"}</strong></span>
-            </div>
-          </div>
-
-          {/* Certificate Metadata Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl mx-auto text-left text-xs pt-2">
-            <div className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
-              <div className="text-[10px] text-slate-400 font-bold uppercase">Certificate No</div>
-              <div className="font-mono font-bold text-slate-800 dark:text-slate-200 mt-0.5">
-                {cert.certificateNumber}
-              </div>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
-              <div className="text-[10px] text-slate-400 font-bold uppercase">Date of Issuance</div>
-              <div className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
-                {cert.issueDate}
-              </div>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
-              <div className="text-[10px] text-slate-400 font-bold uppercase">Statutory Expiry</div>
-              <div className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
-                {cert.expiryDate}
-              </div>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
-              <div className="text-[10px] text-slate-400 font-bold uppercase">Verification Status</div>
-              <div className="font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5 flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Active & Audited</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer Seals and Signatures */}
-          <div className="flex items-center justify-between pt-6 border-t border-amber-600/30 max-w-2xl mx-auto">
-            <div className="text-left space-y-1">
-              <div className="w-32 h-10 border-b border-dashed border-slate-400 flex items-end">
-                <span className="font-serif italic text-xs text-slate-700 dark:text-slate-300">
-                  Belete Molla (Ph.D)
+            <div className="text-xs text-slate-500 mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+              {sector && (
+                <span>
+                  Sector: <strong className="text-slate-700">{sector}</strong>
                 </span>
+              )}
+              {growthStage && (
+                <span>
+                  Stage:{" "}
+                  <strong className="text-slate-700">{growthStage}</strong>
+                </span>
+              )}
+              {tin && (
+                <span>
+                  TIN: <strong className="text-slate-700">{tin}</strong>
+                </span>
+              )}
+            </div>
+            {(commercialRegNo || headquarters) && (
+              <div className="text-xs text-slate-500 mt-1 flex flex-wrap justify-center gap-x-3">
+                {commercialRegNo && (
+                  <span>
+                    Reg. No:{" "}
+                    <strong className="text-slate-700">{commercialRegNo}</strong>
+                  </span>
+                )}
+                {headquarters && (
+                  <span>
+                    Location:{" "}
+                    <strong className="text-slate-700">{headquarters}</strong>
+                  </span>
+                )}
               </div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Minister of Innovation & Tech
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto text-left text-xs pt-2">
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="text-[10px] text-slate-400 font-bold uppercase">
+                Certificate No
+              </div>
+              <div className="font-mono font-bold text-slate-800 mt-0.5 break-all">
+                {certificateNumber || "—"}
               </div>
             </div>
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="text-[10px] text-slate-400 font-bold uppercase">
+                Date of issuance
+              </div>
+              <div className="font-semibold text-slate-800 mt-0.5">
+                {formatDate(issuedAt)}
+              </div>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="text-[10px] text-slate-400 font-bold uppercase">
+                Valid until
+              </div>
+              <div className="font-semibold text-slate-800 mt-0.5">
+                {formatDate(expiresAt)}
+              </div>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="text-[10px] text-slate-400 font-bold uppercase">
+                Registry status
+              </div>
+              <div
+                className={`font-semibold mt-0.5 flex items-center gap-1 ${
+                  statusLabel === "Active"
+                    ? "text-emerald-700"
+                    : "text-amber-700"
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>{statusLabel}</span>
+              </div>
+            </div>
+          </div>
 
-            {/* Sovereign Seal Stamp */}
-            <div className="flex flex-col items-center justify-center w-20 h-20 rounded-full border-2 border-amber-600 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-center p-1 shadow-inner">
-              <Award className="w-6 h-6 text-amber-600" />
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-6 border-t border-teal-700/20 max-w-2xl mx-auto">
+            <div className="text-left text-xs text-slate-500 max-w-xs">
+              <p>
+                Issued digitally via the MinT Digital Innovation Hub.
+                Authenticity is confirmed by certificate number in the official
+                registry.
+              </p>
+            </div>
+            <div className="flex flex-col items-center justify-center w-20 h-20 rounded-full border-2 border-teal-700/40 bg-teal-50 text-teal-800 text-center p-1">
+              <Award className="w-6 h-6" />
               <span className="text-[7px] font-extrabold uppercase tracking-tight leading-tight mt-0.5">
-                MinT Sovereign Seal
+                MinT Registry
               </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-                <QrCode className="w-12 h-12 text-slate-800 dark:text-slate-200" />
-              </div>
-              <div className="text-[10px] text-slate-500 text-left leading-tight hidden sm:block">
-                Scan to verify on
-                <div className="font-mono font-bold text-slate-700 dark:text-slate-300">
-                  mint.gov.et
-                </div>
-              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Action Toolbar */}
       <div className="flex items-center justify-end gap-3 print:hidden">
         <button
+          type="button"
           onClick={handlePrint}
-          className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-xs font-semibold hover:bg-slate-50 flex items-center gap-1.5"
+          className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 flex items-center gap-1.5"
         >
           <Printer className="w-3.5 h-3.5" />
-          <span>Print Certificate</span>
-        </button>
-        <button
-          onClick={handlePrint}
-          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
-        >
-          <Download className="w-3.5 h-3.5" />
-          <span>Download PDF Copy</span>
+          Print / Save as PDF
         </button>
       </div>
     </div>

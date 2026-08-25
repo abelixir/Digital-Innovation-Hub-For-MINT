@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../utils/api";
 import { useToast } from "../../context/ToastContext";
 import AppShell from "../../components/AppShell";
-import { COUNTRIES } from "../../data/mockData";
+import { COUNTRIES } from "../../data/constants";
 import { Loader2, Save, ChevronDown } from "lucide-react";
 
 const TYPES = [

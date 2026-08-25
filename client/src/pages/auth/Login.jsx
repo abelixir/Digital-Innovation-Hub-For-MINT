@@ -1,24 +1,31 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, Sparkles, UserCheck, Shield } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  ArrowRight,
+  Loader2,
+  Shield,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 
-function homeForRole(role) {
+function roleHome(role) {
   if (role === "founder") return "/founder";
   if (role === "investor") return "/investor";
-  if (role === "admin") return "/admin/analytics";
-  if (role === "reviewer") return "/reviewer";
-  if (role === "moderator") return "/moderator";
+  if (role === "admin") return "/admin";
   if (role === "ecosystem_builder") return "/builder";
   if (role === "citizen") return "/citizen";
   return "/";
 }
 
 export default function Login() {
-  const [form, setForm] = useState({ email: "founder@mint.gov.et", password: "password123" });
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login, switchRole } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -28,168 +35,128 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!form.email || !form.password) {
-      setError("Please enter email and password");
+
+    if (!form.email.trim() || !form.password) {
+      setError("Please enter your email and password.");
       return;
     }
+
     setLoading(true);
     try {
-      const user = await login(form.email, form.password);
-      navigate(homeForRole(user.role));
+      const user = await login(form.email.trim(), form.password);
+      navigate(roleHome(user.role), { replace: true });
     } catch (err) {
-      setError(err.message || "Login failed");
+      setError(err.message || "Sign-in failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const quickDemoLogin = (role, email) => {
-    switchRole(role);
-    navigate(homeForRole(role));
-  };
-
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex flex-col lg:flex-row bg-slate-50">
-      {/* Left Sovereign Brand Panel */}
-      <div className="lg:w-1/2 bg-gradient-to-br from-slate-950 via-teal-950 to-slate-900 text-white p-8 sm:p-12 lg:p-16 flex flex-col justify-between relative overflow-hidden">
-        <div className="absolute top-10 left-10 w-72 h-72 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center font-bold text-base shadow-lg shadow-teal-950/50">
-              <Shield className="w-6 h-6 text-white" />
+    <div className="min-h-[calc(100vh-4rem)] flex">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-teal-900 via-slate-900 to-slate-950 text-white p-12 flex-col justify-between">
+        <div>
+          <div className="flex items-center gap-2.5 mb-12">
+            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+              <Shield size={20} />
             </div>
             <div>
-              <span className="font-extrabold text-sm tracking-tight block">MinT Digital Hub</span>
-              <span className="text-[11px] text-teal-300 font-medium">Proclamation No. 1396/2025</span>
+              <div className="font-semibold text-sm">MinT Digital Portal</div>
+              <div className="text-xs text-teal-200/80">
+                Ministry of Innovation and Technology
+              </div>
             </div>
           </div>
-
-          <div className="pt-8 space-y-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/20 text-teal-300 text-xs font-semibold">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Sovereign Identity Gateway</span>
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold leading-tight tracking-tight">
-              Official Ethiopian Startup Designation Portal
-            </h1>
-            <p className="text-slate-300 text-xs sm:text-sm leading-relaxed max-w-lg font-normal">
-              Manage statutory designation filings, digital QR certificates, audited investor data rooms, and national innovation opportunities.
-            </p>
-          </div>
+          <h1 className="text-3xl sm:text-4xl font-bold leading-tight mb-4">
+            Sign in to your workspace
+          </h1>
+          <p className="text-teal-100/90 text-base leading-relaxed max-w-md">
+            Access designation applications, certificates, data rooms, and
+            investor workflows under Proclamation No. 1396/2025.
+          </p>
         </div>
-
-        {/* Quick Demo Workspace Selector */}
-        <div className="relative z-10 pt-10 border-t border-slate-800 space-y-3">
-          <div className="text-xs font-bold text-teal-300 uppercase tracking-wider flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Instant Role Simulation (1-Click Test)</span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => quickDemoLogin("founder", "founder@mint.gov.et")}
-              className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold text-left border border-white/10 transition-colors"
-            >
-              🚀 Founder
-            </button>
-            <button
-              type="button"
-              onClick={() => quickDemoLogin("investor", "investor@mint.gov.et")}
-              className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold text-left border border-white/10 transition-colors"
-            >
-              💼 Investor
-            </button>
-            <button
-              type="button"
-              onClick={() => quickDemoLogin("admin", "admin@mint.gov.et")}
-              className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold text-left border border-white/10 transition-colors"
-            >
-              🏛️ MinT Admin
-            </button>
-            <button
-              type="button"
-              onClick={() => quickDemoLogin("reviewer", "reviewer@mint.gov.et")}
-              className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold text-left border border-white/10 transition-colors"
-            >
-              ⚖️ Case Reviewer
-            </button>
-            <button
-              type="button"
-              onClick={() => quickDemoLogin("ecosystem_builder", "builder@mint.gov.et")}
-              className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold text-left border border-white/10 transition-colors"
-            >
-              🏢 Tech Hub
-            </button>
-            <button
-              type="button"
-              onClick={() => quickDemoLogin("citizen", "citizen@mint.gov.et")}
-              className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold text-left border border-white/10 transition-colors"
-            >
-              🇪🇹 Citizen
-            </button>
-          </div>
-        </div>
+        <p className="text-sm text-teal-200/60">
+          Federal Democratic Republic of Ethiopia · Digital Ethiopia 2030
+        </p>
       </div>
 
-      {/* Right Login Form */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 lg:p-16">
-        <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 p-8 shadow-xl space-y-6">
-          <div>
-            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              Sign In to Your Workspace
-            </h2>
-            <p className="text-slate-500 text-xs mt-1">
-              New applicant?{" "}
-              <Link to="/register" className="text-teal-800 font-bold hover:underline">
-                Create new statutory account
-              </Link>
-            </p>
-          </div>
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-slate-50">
+        <div className="w-full max-w-md">
+          <h2 className="text-2xl font-bold text-slate-900 mb-1">Welcome back</h2>
+          <p className="text-slate-500 text-sm mb-8">
+            New to the portal?{" "}
+            <Link
+              to="/register"
+              className="text-teal-700 font-semibold hover:underline"
+            >
+              Create an account
+            </Link>
+          </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5" autoComplete="on">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Official Email
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-slate-700 mb-1.5"
+              >
+                Email address
               </label>
               <div className="relative">
                 <Mail
                   size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
                 <input
+                  id="email"
                   name="email"
                   type="email"
+                  autoComplete="email"
                   value={form.email}
                   onChange={handleChange}
-                  placeholder="founder@venture.et"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 text-xs font-medium"
+                  placeholder="name@organization.et"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-slate-700 mb-1.5"
+              >
                 Password
               </label>
               <div className="relative">
                 <Lock
                   size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
                 <input
+                  id="password"
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
                   value={form.password}
                   onChange={handleChange}
-                  placeholder="••••••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 text-xs font-medium"
+                  placeholder="Enter your password"
+                  className="w-full pl-10 pr-11 py-2.5 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
 
             {error && (
-              <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 px-3.5 py-2.5 rounded-xl font-medium">
+              <p
+                role="alert"
+                className="text-sm text-red-700 bg-red-50 border border-red-100 px-3 py-2 rounded-xl"
+              >
                 {error}
               </p>
             )}
@@ -197,26 +164,19 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white font-bold text-xs rounded-2xl shadow-md shadow-teal-700/20 transition-all hover:scale-[1.01]"
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white font-semibold rounded-xl text-sm"
             >
               {loading ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" /> Verifying Credentials…
+                  <Loader2 size={16} className="animate-spin" /> Signing in…
                 </>
               ) : (
                 <>
-                  <span>Authenticate & Enter Workspace</span>
-                  <ArrowRight size={16} />
+                  Sign in <ArrowRight size={16} />
                 </>
               )}
             </button>
           </form>
-
-          <div className="pt-4 border-t border-slate-100 text-center">
-            <span className="text-[11px] text-slate-400 font-medium">
-              Sovereign encryption backed by Ministry of Innovation & Technology
-            </span>
-          </div>
         </div>
       </div>
     </div>

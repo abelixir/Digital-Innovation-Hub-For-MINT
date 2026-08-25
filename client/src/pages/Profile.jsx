@@ -2,8 +2,19 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import AppShell from "../components/AppShell";
-import { SECTORS } from "../data/mockData";
+import { SECTORS } from "../data/constants";
 import { User, Lock, Save, Loader2 } from "lucide-react";
+
+const BUILDER_TYPES = [
+  { value: "incubator", label: "Incubator" },
+  { value: "accelerator", label: "Accelerator" },
+  { value: "coworking", label: "Coworking / hub" },
+  { value: "angel_network", label: "Angel network" },
+  { value: "university", label: "University" },
+  { value: "research", label: "Research" },
+  { value: "ngo", label: "NGO" },
+  { value: "other", label: "Other" },
+];
 
 export default function Profile() {
   const { user, updateProfile } = useAuth();
@@ -14,6 +25,8 @@ export default function Profile() {
     fullName: "",
     companyName: "",
     organization: "",
+    organizationName: "",
+    builderType: "",
     investmentRange: "",
     focus: [],
     currentPassword: "",
@@ -28,6 +41,8 @@ export default function Profile() {
         fullName: user.fullName || "",
         companyName: user.companyName || "",
         organization: user.organization || "",
+        organizationName: user.organizationName || "",
+        builderType: user.builderType || "",
         investmentRange: user.investmentRange || "",
         focus: user.focus || [],
       }));
@@ -61,11 +76,18 @@ export default function Profile() {
       }
 
       const payload = { fullName: form.fullName };
-      if (user.role === "founder") payload.companyName = form.companyName;
+
+      if (user.role === "founder") {
+        payload.companyName = form.companyName;
+      }
       if (user.role === "investor") {
         payload.organization = form.organization;
         payload.investmentRange = form.investmentRange;
         payload.focus = form.focus;
+      }
+      if (user.role === "ecosystem_builder") {
+        payload.organizationName = form.organizationName;
+        payload.builderType = form.builderType;
       }
       if (form.newPassword) {
         payload.currentPassword = form.currentPassword;
@@ -93,7 +115,7 @@ export default function Profile() {
   return (
     <AppShell
       title="My profile"
-      subtitle={`Account · ${user.role?.replace("_", " ")}`}
+      subtitle={`Account · ${user.role?.replace(/_/g, " ")}`}
     >
       <form
         onSubmit={handleSubmit}
@@ -106,7 +128,9 @@ export default function Profile() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Full name</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Full name
+            </label>
             <input
               value={form.fullName}
               onChange={(e) => setForm({ ...form, fullName: e.target.value })}
@@ -116,7 +140,9 @@ export default function Profile() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Email
+            </label>
             <input
               value={user.email}
               disabled
@@ -131,7 +157,9 @@ export default function Profile() {
               </label>
               <input
                 value={form.companyName}
-                onChange={(e) => setForm({ ...form, companyName: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, companyName: e.target.value })
+                }
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
@@ -145,7 +173,9 @@ export default function Profile() {
                 </label>
                 <input
                   value={form.organization}
-                  onChange={(e) => setForm({ ...form, organization: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, organization: e.target.value })
+                  }
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>
@@ -190,6 +220,42 @@ export default function Profile() {
               </div>
             </>
           )}
+
+          {user.role === "ecosystem_builder" && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Organization name
+                </label>
+                <input
+                  value={form.organizationName}
+                  onChange={(e) =>
+                    setForm({ ...form, organizationName: e.target.value })
+                  }
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Builder type
+                </label>
+                <select
+                  value={form.builderType}
+                  onChange={(e) =>
+                    setForm({ ...form, builderType: e.target.value })
+                  }
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                >
+                  <option value="">Select type</option>
+                  {BUILDER_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="px-6 py-5 border-b border-slate-100 space-y-4">
@@ -197,17 +263,23 @@ export default function Profile() {
             <Lock size={18} className="text-teal-700" />
             <h2 className="font-semibold text-slate-900">Change password</h2>
           </div>
-          <p className="text-xs text-slate-500">Leave blank to keep current password</p>
+          <p className="text-xs text-slate-500">
+            Leave blank to keep your current password
+          </p>
           <input
             type="password"
             placeholder="Current password"
+            autoComplete="current-password"
             value={form.currentPassword}
-            onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, currentPassword: e.target.value })
+            }
             className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
           <input
             type="password"
             placeholder="New password"
+            autoComplete="new-password"
             value={form.newPassword}
             onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
             className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
@@ -215,15 +287,20 @@ export default function Profile() {
           <input
             type="password"
             placeholder="Confirm new password"
+            autoComplete="new-password"
             value={form.confirmPassword}
-            onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, confirmPassword: e.target.value })
+            }
             className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
         </div>
 
         <div className="px-6 py-5">
           {error && (
-            <p className="mb-3 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-xl">{error}</p>
+            <p className="mb-3 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-xl">
+              {error}
+            </p>
           )}
           <button
             type="submit"

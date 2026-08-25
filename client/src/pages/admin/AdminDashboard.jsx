@@ -6,7 +6,7 @@ import { apiRequest } from "../../utils/api";
 import AppShell from "../../components/AppShell";
 import StatCard from "../../components/StatCard";
 import StatusBadge from "../../components/StatusBadge";
-import { SECTORS } from "../../data/mockData";
+import { SECTORS } from "../../data/constants";
 import {
   Building2,
   CheckCircle,

@@ -1,7 +1,48 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { User, Mail, Lock, ArrowRight, Loader2, ShieldCheck, Shield } from "lucide-react";
+import {
+  User,
+  Mail,
+  Lock,
+  ArrowRight,
+  Loader2,
+  Shield,
+  Eye,
+  EyeOff,
+} from "lucide-react";
+
+function roleHome(role) {
+  if (role === "founder") return "/founder";
+  if (role === "investor") return "/investor";
+  if (role === "admin") return "/admin";
+  if (role === "ecosystem_builder") return "/builder";
+  if (role === "citizen") return "/citizen";
+  return "/";
+}
+
+const ROLES = [
+  {
+    value: "founder",
+    label: "Startup founder",
+    desc: "Apply for MinT designation",
+  },
+  {
+    value: "investor",
+    label: "Investor",
+    desc: "Discover designated startups",
+  },
+  {
+    value: "ecosystem_builder",
+    label: "Ecosystem builder",
+    desc: "Incubator, accelerator, or hub",
+  },
+  {
+    value: "citizen",
+    label: "Citizen",
+    desc: "Explore the public portal",
+  },
+];
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -10,6 +51,7 @@ export default function Register() {
     password: "",
     role: "founder",
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -24,210 +66,196 @@ export default function Register() {
     e.preventDefault();
     setError("");
 
-    if (!form.fullName || !form.email || !form.password) {
-      setError("Please fill in all required fields");
+    if (!form.fullName.trim() || !form.email.trim() || !form.password) {
+      setError("Please complete all required fields.");
       return;
     }
 
     if (form.password.length < 6) {
-      setError("Password must be at least 6 characters");
+      setError("Password must be at least 6 characters.");
       return;
     }
 
     setLoading(true);
-
     try {
       const user = await register(
-        form.fullName,
-        form.email,
+        form.fullName.trim(),
+        form.email.trim(),
         form.password,
         form.role
       );
-
-      if (user.role === "founder") navigate("/founder");
-      else if (user.role === "investor") navigate("/investor");
-      else if (user.role === "ecosystem_builder") navigate("/builder");
-      else if (user.role === "admin") navigate("/admin/analytics");
-      else navigate("/citizen");
+      navigate(roleHome(user.role), { replace: true });
     } catch (err) {
-      setError(err.message || "Registration failed");
+      setError(err.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const roles = [
-    {
-      value: "founder",
-      label: "Startup Founder",
-      desc: "Apply for designation & incentives",
-      icon: "🚀",
-    },
-    {
-      value: "investor",
-      label: "Accredited Investor",
-      desc: "Access verified data rooms",
-      icon: "💼",
-    },
-    {
-      value: "ecosystem_builder",
-      label: "Ecosystem Builder",
-      desc: "Incubator / accelerator hub",
-      icon: "🏢",
-    },
-    {
-      value: "citizen",
-      label: "Public Observer",
-      desc: "Browse sovereign tech directory",
-      icon: "🇪🇹",
-    },
-  ];
-
   return (
     <div className="min-h-[calc(100vh-4rem)] flex flex-col lg:flex-row bg-slate-50">
-      {/* Left Sovereign Brand Panel */}
-      <div className="lg:w-1/2 bg-gradient-to-br from-slate-950 via-teal-950 to-slate-900 text-white p-8 sm:p-12 lg:p-16 flex flex-col justify-between relative overflow-hidden">
-        <div className="absolute top-10 left-10 w-72 h-72 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 space-y-6">
+      <div className="lg:w-1/2 bg-gradient-to-br from-slate-950 via-teal-950 to-slate-900 text-white p-8 sm:p-12 lg:p-16 flex flex-col justify-between">
+        <div className="space-y-6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center font-bold text-base shadow-lg shadow-teal-950/50">
-              <Shield className="w-6 h-6 text-white" />
+            <div className="w-11 h-11 rounded-xl bg-teal-600/30 border border-teal-500/40 flex items-center justify-center">
+              <Shield className="w-5 h-5 text-teal-200" />
             </div>
             <div>
-              <span className="font-extrabold text-sm tracking-tight block">MinT Digital Hub</span>
-              <span className="text-[11px] text-teal-300 font-medium">Proclamation No. 1396/2025</span>
+              <div className="font-semibold text-sm">MinT Digital Portal</div>
+              <div className="text-[11px] text-teal-300">
+                Proclamation No. 1396/2025
+              </div>
             </div>
           </div>
 
-          <div className="pt-8 space-y-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/20 text-teal-300 text-xs font-semibold">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>National Innovation Onboarding</span>
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold leading-tight tracking-tight">
-              Join Ethiopia&apos;s Sovereign Startup Ecosystem
+          <div className="pt-4 space-y-3">
+            <h1 className="text-3xl sm:text-4xl font-bold leading-tight tracking-tight">
+              Create your portal account
             </h1>
-            <p className="text-slate-300 text-xs sm:text-sm leading-relaxed max-w-lg font-normal">
-              Register your enterprise to apply for official designation under Proclamation No. 1396/2025, unlock statutory benefits, and connect with global investors.
+            <p className="text-slate-300 text-sm leading-relaxed max-w-lg">
+              Register as a founder, investor, ecosystem builder, or citizen to
+              use Ethiopia&apos;s official startup designation platform.
             </p>
           </div>
         </div>
 
-        <div className="relative z-10 pt-10 border-t border-slate-800 text-xs text-slate-400">
-          Federal Democratic Republic of Ethiopia · Digital Ethiopia 2030 Strategy
-        </div>
+        <p className="text-xs text-slate-400 pt-10 border-t border-slate-800">
+          Federal Democratic Republic of Ethiopia · Digital Ethiopia 2030
+        </p>
       </div>
 
-      {/* Right Register Form */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 lg:p-16">
-        <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 p-8 shadow-xl space-y-6">
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-12">
+        <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
           <div>
-            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              Create Statutory Account
-            </h2>
-            <p className="text-slate-500 text-xs mt-1">
-              Already registered?{" "}
-              <Link to="/login" className="text-teal-800 font-bold hover:underline">
-                Sign in to existing account
+            <h2 className="text-xl font-bold text-slate-900">Create account</h2>
+            <p className="text-slate-500 text-sm mt-1">
+              Already have an account?{" "}
+              <Link
+                to="/login"
+                className="text-teal-700 font-semibold hover:underline"
+              >
+                Sign in
               </Link>
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-                Select Your Role
-              </label>
+              <p className="block text-sm font-medium text-slate-700 mb-2">
+                I am registering as
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {roles.map((r) => (
+                {ROLES.map((r) => (
                   <button
                     key={r.value}
                     type="button"
                     onClick={() => setForm({ ...form, role: r.value })}
-                    className={`p-3 text-left rounded-2xl border transition-all ${
+                    className={`p-3 text-left rounded-xl border transition-all ${
                       form.role === r.value
-                        ? "bg-teal-50 border-teal-500 shadow-2xs"
+                        ? "bg-teal-50 border-teal-500"
                         : "bg-white border-slate-200 hover:border-slate-300"
                     }`}
                   >
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span>{r.icon}</span>
-                      <span
-                        className={`text-xs font-bold ${
-                          form.role === r.value ? "text-teal-800" : "text-slate-800"
-                        }`}
-                      >
-                        {r.label}
-                      </span>
+                    <div
+                      className={`text-sm font-semibold ${
+                        form.role === r.value ? "text-teal-800" : "text-slate-800"
+                      }`}
+                    >
+                      {r.label}
                     </div>
-                    <div className="text-[10px] text-slate-500">{r.desc}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{r.desc}</div>
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Full Legal Name
+              <label
+                htmlFor="fullName"
+                className="block text-sm font-medium text-slate-700 mb-1.5"
+              >
+                Full name
               </label>
               <div className="relative">
                 <User
                   size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
                 <input
+                  id="fullName"
                   name="fullName"
+                  autoComplete="name"
                   value={form.fullName}
                   onChange={handleChange}
-                  placeholder="e.g. Abebe Bikila"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 text-xs font-medium"
+                  placeholder="Your full name"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Official Email
+              <label
+                htmlFor="reg-email"
+                className="block text-sm font-medium text-slate-700 mb-1.5"
+              >
+                Email address
               </label>
               <div className="relative">
                 <Mail
                   size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
                 <input
+                  id="reg-email"
                   name="email"
                   type="email"
+                  autoComplete="email"
                   value={form.email}
                   onChange={handleChange}
-                  placeholder="founder@company.et"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 text-xs font-medium"
+                  placeholder="name@organization.et"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              <label
+                htmlFor="reg-password"
+                className="block text-sm font-medium text-slate-700 mb-1.5"
+              >
                 Password
               </label>
               <div className="relative">
                 <Lock
                   size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
                 <input
+                  id="reg-password"
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
                   value={form.password}
                   onChange={handleChange}
-                  placeholder="Minimum 6 characters"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 text-xs font-medium"
+                  placeholder="At least 6 characters"
+                  className="w-full pl-10 pr-11 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
 
             {error && (
-              <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 px-3.5 py-2.5 rounded-xl font-medium">
+              <p
+                role="alert"
+                className="text-sm text-red-700 bg-red-50 border border-red-100 px-3 py-2 rounded-xl"
+              >
                 {error}
               </p>
             )}
@@ -235,16 +263,15 @@ export default function Register() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white font-bold text-xs rounded-2xl shadow-md shadow-teal-700/20 transition-all hover:scale-[1.01]"
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white font-semibold rounded-xl text-sm"
             >
               {loading ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" /> Provisioning Account…
+                  <Loader2 size={16} className="animate-spin" /> Creating account…
                 </>
               ) : (
                 <>
-                  <span>Create Account & Continue</span>
-                  <ArrowRight size={16} />
+                  Create account <ArrowRight size={16} />
                 </>
               )}
             </button>
