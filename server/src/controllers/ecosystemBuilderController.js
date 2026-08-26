@@ -9,10 +9,29 @@ function addYears(date, years) {
   return d;
 }
 
-function makeBuilderCertificateNumber(id) {
+/**
+ * Sequential registry reference — not derived from MongoDB ObjectId hex.
+ * Example: DES-EB-2026-00001
+ */
+async function makeBuilderCertificateNumber() {
   const year = new Date().getFullYear();
-  const short = String(id).slice(-6).toUpperCase();
-  return `MINT-EB-${year}-${short}`;
+  const prefix = `DES-EB-${year}-`;
+
+  const last = await EcosystemBuilder.findOne({
+    certificateNumber: { $regex: `^${prefix}` },
+  })
+    .sort({ certificateNumber: -1 })
+    .select('certificateNumber')
+    .lean();
+
+  let next = 1;
+  if (last?.certificateNumber) {
+    const part = last.certificateNumber.split('-').pop();
+    const n = parseInt(part, 10);
+    if (!Number.isNaN(n)) next = n + 1;
+  }
+
+  return `${prefix}${String(next).padStart(5, '0')}`;
 }
 
 exports.createBuilder = async (req, res) => {
@@ -32,6 +51,7 @@ exports.createBuilder = async (req, res) => {
       status: 'pending',
       submittedAt: now,
       reviewDueAt: addWorkingDays(now, 30),
+      certificateNumber: null,
     });
 
     await CaseDecision.create({
@@ -76,7 +96,15 @@ exports.updateMyBuilder = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Application not found' });
     }
 
-    Object.assign(builder, req.body);
+    // Never let clients set certificate / status fields
+    const body = { ...req.body };
+    delete body.certificateNumber;
+    delete body.status;
+    delete body.designatedAt;
+    delete body.designationExpiresAt;
+    delete body.ownerUser;
+
+    Object.assign(builder, body);
     await builder.save();
 
     res.status(200).json({
@@ -93,7 +121,9 @@ exports.getPublicBuilders = async (req, res) => {
   try {
     const builders = await EcosystemBuilder.find({ status: 'designated' })
       .sort({ designatedAt: -1 })
-      .select('-rejectionReason -suspensionReason -revocationReason -adminNotes');
+      .select(
+        '-rejectionReason -suspensionReason -revocationReason -adminNotes -certificateNumber'
+      );
 
     res.status(200).json({
       success: true,
@@ -119,8 +149,8 @@ exports.getAdminBuilders = async (req, res) => {
     }
 
     const builders = await EcosystemBuilder.find(filter)
-      .populate('ownerUser', 'fullName email role')
-      .sort({ createdAt: -1 });
+      .populate('ownerUser', 'fullName email')
+      .sort({ submittedAt: -1, createdAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -193,7 +223,7 @@ exports.approveBuilder = async (req, res) => {
 
     const now = new Date();
     const expiresAt = addYears(now, 5);
-    const certificateNumber = makeBuilderCertificateNumber(builder._id);
+    const certificateNumber = await makeBuilderCertificateNumber();
 
     builder.status = 'designated';
     builder.designatedAt = now;
@@ -224,8 +254,8 @@ exports.approveBuilder = async (req, res) => {
             <h2 style="color:#0d9488;">Ecosystem Builder Designated</h2>
             <p>Hello ${builder.ownerUser.fullName || 'Applicant'},</p>
             <p><strong>${builder.organizationName}</strong> has been designated as a Startup Ecosystem Builder.</p>
-            <p><strong>Certificate:</strong> ${certificateNumber}</p>
             <p><strong>Valid until:</strong> ${expiresAt.toDateString()}</p>
+            <p>You can view your status in the MinT Digital Portal builder workspace.</p>
           </div>
         `,
       });
@@ -233,7 +263,7 @@ exports.approveBuilder = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Ecosystem builder designated',
+      message: 'Builder designated',
       data: builder,
     });
   } catch (error) {
@@ -244,6 +274,11 @@ exports.approveBuilder = async (req, res) => {
 
 exports.rejectBuilder = async (req, res) => {
   try {
+    const reason = (req.body?.reason || '').trim();
+    if (!reason) {
+      return res.status(400).json({ success: false, message: 'Reason is required' });
+    }
+
     const builder = await EcosystemBuilder.findById(req.params.id).populate(
       'ownerUser',
       'fullName email'
@@ -252,15 +287,13 @@ exports.rejectBuilder = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Not found' });
     }
 
-    const reason =
-      (req.body?.reason || '').trim() || 'Did not meet ecosystem builder criteria';
-    const notes = req.body?.notes || '';
-
     builder.status = 'rejected';
     builder.rejectionReason = reason;
-    builder.suspensionReason = '';
+    builder.certificateNumber = null;
+    builder.designatedAt = null;
+    builder.designationExpiresAt = null;
     builder.reviewedBy = req.user._id;
-    builder.adminNotes = notes;
+    builder.adminNotes = req.body?.notes || builder.adminNotes || '';
     await builder.save();
 
     await CaseDecision.create({
@@ -268,19 +301,19 @@ exports.rejectBuilder = async (req, res) => {
       entityId: builder._id,
       action: 'reject',
       reason,
-      notes,
+      notes: req.body?.notes || '',
       actor: req.user._id,
     });
 
     if (builder.ownerUser?.email) {
       await sendEmail({
         to: builder.ownerUser.email,
-        subject: `Ecosystem Builder Update – ${builder.organizationName}`,
+        subject: `Application update – ${builder.organizationName}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color:#64748b;">Application not approved</h2>
+            <h2 style="color:#b91c1c;">Application not approved</h2>
             <p>Hello ${builder.ownerUser.fullName || 'Applicant'},</p>
-            <p><strong>${builder.organizationName}</strong> was not designated at this time.</p>
+            <p>The application for <strong>${builder.organizationName}</strong> was not approved.</p>
             <p><strong>Reason:</strong> ${reason}</p>
           </div>
         `,
@@ -293,12 +326,18 @@ exports.rejectBuilder = async (req, res) => {
       data: builder,
     });
   } catch (error) {
+    console.error('Reject builder error:', error);
     res.status(500).json({ success: false, message: error.message || 'Server error' });
   }
 };
 
 exports.suspendBuilder = async (req, res) => {
   try {
+    const reason = (req.body?.reason || '').trim();
+    if (!reason) {
+      return res.status(400).json({ success: false, message: 'Reason is required' });
+    }
+
     const builder = await EcosystemBuilder.findById(req.params.id).populate(
       'ownerUser',
       'fullName email'
@@ -307,13 +346,10 @@ exports.suspendBuilder = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Not found' });
     }
 
-    const reason = (req.body?.reason || '').trim() || 'Suspended by MinT admin';
-    const notes = req.body?.notes || '';
-
     builder.status = 'suspended';
     builder.suspensionReason = reason;
     builder.reviewedBy = req.user._id;
-    builder.adminNotes = notes;
+    builder.adminNotes = req.body?.notes || builder.adminNotes || '';
     await builder.save();
 
     await CaseDecision.create({
@@ -321,14 +357,14 @@ exports.suspendBuilder = async (req, res) => {
       entityId: builder._id,
       action: 'suspend',
       reason,
-      notes,
+      notes: req.body?.notes || '',
       actor: req.user._id,
     });
 
     if (builder.ownerUser?.email) {
       await sendEmail({
         to: builder.ownerUser.email,
-        subject: `Ecosystem Builder Suspended – ${builder.organizationName}`,
+        subject: `Designation suspended – ${builder.organizationName}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color:#b45309;">Designation suspended</h2>
@@ -351,7 +387,6 @@ exports.suspendBuilder = async (req, res) => {
   }
 };
 
-// POST /api/ecosystem-builders/:id/interest
 exports.expressInterest = async (req, res) => {
   try {
     const builder = await EcosystemBuilder.findById(req.params.id).populate(
@@ -370,9 +405,7 @@ exports.expressInterest = async (req, res) => {
     const fromUser = req.user;
     const toEmail = builder.ownerUser?.email;
 
-    const safeMessage = message
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+    const safeMessage = message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
     if (toEmail) {
       await sendEmail({
