@@ -4,13 +4,30 @@ import { useToast } from "../../context/ToastContext";
 import AppShell from "../../components/AppShell";
 import StatusBadge from "../../components/StatusBadge";
 import Modal from "../../components/ui/Modal";
-import { Loader2, CheckCircle, XCircle, Building2, Ban } from "lucide-react";
+import {
+  Loader2,
+  CheckCircle,
+  XCircle,
+  Building2,
+  Ban,
+  Search,
+} from "lucide-react";
+
+const FILTERS = [
+  { key: "pending", label: "Queue" },
+  { key: "under_review", label: "Under review" },
+  { key: "designated", label: "Designated" },
+  { key: "rejected", label: "Rejected" },
+  { key: "suspended", label: "Suspended" },
+  { key: "all", label: "All" },
+];
 
 export default function AdminBuilders() {
   const { toast } = useToast();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("pending");
+  const [search, setSearch] = useState("");
   const [modal, setModal] = useState(null);
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
@@ -37,7 +54,10 @@ export default function AdminBuilders() {
 
   const submit = async () => {
     if (!modal) return;
-    if ((modal.action === "reject" || modal.action === "suspend") && !reason.trim()) {
+    if (
+      (modal.action === "reject" || modal.action === "suspend") &&
+      !reason.trim()
+    ) {
       toast("Reason is required", "error");
       return;
     }
@@ -51,8 +71,8 @@ export default function AdminBuilders() {
         modal.action === "approve"
           ? "Builder designated"
           : modal.action === "reject"
-          ? "Application rejected"
-          : "Builder suspended";
+            ? "Application rejected"
+            : "Builder suspended";
       toast(msg, "success");
       setModal(null);
       setReason("");
@@ -65,124 +85,194 @@ export default function AdminBuilders() {
     }
   };
 
+  const filtered = items.filter((b) => {
+    const q = search.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      b.organizationName?.toLowerCase().includes(q) ||
+      b.ownerUser?.email?.toLowerCase().includes(q) ||
+      b.ownerUser?.fullName?.toLowerCase().includes(q) ||
+      b.country?.toLowerCase().includes(q)
+    );
+  });
+
   return (
     <AppShell
       title="Ecosystem builders"
-      subtitle="Final decisions after reviewer evaluation"
+      subtitle="Review and designation decisions"
     >
-      <div className="mb-4 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
-        Prefer designating cases that are <strong>under review</strong> (reviewer notes appear below each card).
-      </div>
-
-      <div className="flex flex-wrap gap-2 mb-6">
-        {["pending", "under_review", "designated", "rejected", "suspended", "all"].map((f) => (
-          <button
-            key={f}
-            type="button"
-            onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-full border capitalize ${
-              filter === f
-                ? "bg-teal-50 border-teal-500 text-teal-800"
-                : "bg-white border-slate-200 text-slate-600"
-            }`}
-          >
-            {f.replace("_", " ")}
-          </button>
-        ))}
-      </div>
-
-      {loading ? (
-        <div className="py-16 flex justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+      <div className="space-y-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+          Prefer deciding on cases that are <strong>under review</strong>.
+          Reviewer notes appear in the table when available.
         </div>
-      ) : items.length === 0 ? (
-        <div className="py-16 text-center bg-white rounded-2xl border border-slate-200">
-          <Building2 className="mx-auto text-slate-300 mb-3" size={28} />
-          <p className="text-sm font-medium text-slate-700">No applications</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {items.map((b) => (
-            <div
-              key={b._id}
-              className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-start gap-3"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <span className="text-lg">{b.logo || "🏢"}</span>
-                  <h3 className="font-semibold text-slate-900 text-sm">
-                    {b.organizationName}
-                  </h3>
-                  <StatusBadge status={b.status} />
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize">
-                    {(b.builderType || "").replace(/_/g, " ")}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 line-clamp-2">{b.description}</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  {b.country || "—"} · {b.ownerUser?.fullName} · {b.ownerUser?.email}
-                  {b.certificateNumber && ` · ${b.certificateNumber}`}
-                </p>
-                {b.adminNotes && (
-                  <p className="text-xs text-blue-800 mt-2 bg-blue-50 rounded-lg px-2 py-1.5 border border-blue-100">
-                    <strong>Reviewer / audit notes:</strong> {b.adminNotes}
-                  </p>
-                )}
-                {b.rejectionReason && (
-                  <p className="text-xs text-red-700 mt-1">Reject reason: {b.rejectionReason}</p>
-                )}
-                {b.suspensionReason && (
-                  <p className="text-xs text-amber-700 mt-1">Suspend reason: {b.suspensionReason}</p>
-                )}
-              </div>
-              {["pending", "submitted", "under_review"].includes(b.status) && (
-                <div className="flex flex-wrap gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setModal({ id: b._id, action: "approve" })}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-white bg-teal-600 rounded-lg"
-                  >
-                    <CheckCircle size={13} /> Designate
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setModal({ id: b._id, action: "reject" })}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 rounded-lg"
-                  >
-                    <XCircle size={13} /> Reject
-                  </button>
-                </div>
-              )}
-              {b.status === "designated" && (
-                <button
-                  type="button"
-                  onClick={() => setModal({ id: b._id, action: "suspend" })}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-amber-800 bg-amber-50 rounded-lg shrink-0"
-                >
-                  <Ban size={13} /> Suspend
-                </button>
-              )}
+
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-4 sm:px-5 pt-3 border-b border-slate-100 flex flex-wrap gap-1">
+            {FILTERS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setFilter(t.key)}
+                className={`px-4 py-3 text-sm font-semibold rounded-t-lg transition-colors ${
+                  filter === t.key
+                    ? "text-teal-900 border-b-2 border-teal-700 bg-teal-50/70"
+                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="p-4 sm:p-5 border-b border-slate-100">
+            <div className="relative max-w-md">
+              <Search
+                size={16}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search organization, owner, country…"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600/30 focus:border-teal-600"
+              />
             </div>
-          ))}
+          </div>
+
+          {loading ? (
+            <div className="py-16 flex justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-teal-700" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="py-16 text-center">
+              <Building2 className="mx-auto text-slate-300 mb-3" size={32} />
+              <p className="text-sm font-semibold text-slate-800">
+                No applications
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[800px] text-left">
+                <thead className="bg-slate-50/80 border-b border-slate-100">
+                  <tr>
+                    <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Organization
+                    </th>
+                    <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Type
+                    </th>
+                    <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Country
+                    </th>
+                    <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Status
+                    </th>
+                    <th className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-slate-500 text-right">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filtered.map((b) => (
+                    <tr key={b._id} className="hover:bg-slate-50/90">
+                      <td className="px-4 py-4">
+                        <div className="font-semibold text-slate-900 text-sm">
+                          {b.organizationName}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          {b.ownerUser?.fullName || "—"}
+                          {b.ownerUser?.email ? ` · ${b.ownerUser.email}` : ""}
+                        </div>
+                        {b.adminNotes && (
+                          <p className="text-xs text-blue-800 mt-2 bg-blue-50 rounded-lg px-2 py-1.5 border border-blue-100 line-clamp-2">
+                            <strong>Notes:</strong> {b.adminNotes}
+                          </p>
+                        )}
+                        {b.rejectionReason && (
+                          <p className="text-xs text-red-700 mt-1">
+                            Reject: {b.rejectionReason}
+                          </p>
+                        )}
+                        {b.suspensionReason && (
+                          <p className="text-xs text-amber-800 mt-1">
+                            Suspend: {b.suspensionReason}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-slate-600 capitalize">
+                        {(b.builderType || "—").replace(/_/g, " ")}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-slate-600">
+                        {b.country || "—"}
+                      </td>
+                      <td className="px-4 py-4">
+                        <StatusBadge status={b.status} />
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <div className="inline-flex flex-wrap justify-end gap-2">
+                          {["pending", "submitted", "under_review"].includes(
+                            b.status
+                          ) && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setModal({ id: b._id, action: "approve" })
+                                }
+                                className="inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold text-white bg-teal-700 rounded-xl hover:bg-teal-800"
+                              >
+                                <CheckCircle size={13} /> Designate
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setModal({ id: b._id, action: "reject" })
+                                }
+                                className="inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold text-red-700 bg-red-50 border border-red-100 rounded-xl"
+                              >
+                                <XCircle size={13} /> Reject
+                              </button>
+                            </>
+                          )}
+                          {b.status === "designated" && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setModal({ id: b._id, action: "suspend" })
+                              }
+                              className="inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-100 rounded-xl"
+                            >
+                              <Ban size={13} /> Suspend
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       <Modal
         open={!!modal}
-        onClose={() => setModal(null)}
+        onClose={() => !saving && setModal(null)}
         title={
           modal?.action === "approve"
             ? "Designate ecosystem builder"
             : modal?.action === "reject"
-            ? "Reject application"
-            : "Suspend designation"
+              ? "Reject application"
+              : "Suspend designation"
         }
         footer={
           <>
             <button
               type="button"
               onClick={() => setModal(null)}
-              className="px-4 py-2 text-sm rounded-xl border border-slate-200"
+              className="px-4 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 bg-white"
             >
               Cancel
             </button>
@@ -190,12 +280,12 @@ export default function AdminBuilders() {
               type="button"
               onClick={submit}
               disabled={saving}
-              className={`px-4 py-2 text-sm font-semibold rounded-xl text-white ${
+              className={`px-4 py-2.5 text-sm font-semibold rounded-xl text-white disabled:opacity-50 ${
                 modal?.action === "approve"
-                  ? "bg-teal-600"
+                  ? "bg-teal-700 hover:bg-teal-800"
                   : modal?.action === "reject"
-                  ? "bg-red-600"
-                  : "bg-amber-600"
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-amber-600 hover:bg-amber-700"
               }`}
             >
               {saving ? "Saving…" : "Confirm"}
@@ -205,22 +295,26 @@ export default function AdminBuilders() {
       >
         {(modal?.action === "reject" || modal?.action === "suspend") && (
           <div className="mb-4">
-            <label className="block text-sm font-medium text-slate-700 mb-1">Reason *</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              Reason *
+            </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm"
             />
           </div>
         )}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Internal notes</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">
+            Internal notes
+          </label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
-            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+            className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm"
             placeholder="Optional"
           />
         </div>

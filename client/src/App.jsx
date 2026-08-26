@@ -31,6 +31,7 @@ import ReviewerBuilders from "./pages/reviewer/ReviewerBuilders";
 import ModeratorStartups from "./pages/moderator/ModeratorStartups";
 import ModeratorBuilders from "./pages/moderator/ModeratorBuilders";
 import BuilderApplication from "./pages/builder/BuilderApplication";
+import BuilderDashboard from "./pages/builder/BuilderDashboard";
 
 function roleHome(role) {
   if (role === "founder") return "/founder";
@@ -127,6 +128,7 @@ function AppRoutes() {
       <Route path="/investor" element={<ProtectedRoute roles={["investor"]}><InvestorDashboard /></ProtectedRoute>} />
       <Route path="/investor/directory" element={<ProtectedRoute roles={["investor"]}><Directory embedded /></ProtectedRoute>} />
       <Route path="/investor/directory/:id" element={<ProtectedRoute roles={["investor"]}><StartupDetail embedded /></ProtectedRoute>} />
+      <Route path="/investor/builders" element={<ProtectedRoute roles={["investor"]}><BuildersDirectory embedded /></ProtectedRoute>} />
       <Route path="/investor/opportunities" element={<ProtectedRoute roles={["investor"]}><InvestorOpportunities /></ProtectedRoute>} />
       <Route path="/investor/browse-opportunities" element={<ProtectedRoute roles={["investor"]}><Opportunities embedded /></ProtectedRoute>} />
 
@@ -157,8 +159,8 @@ function AppRoutes() {
       <Route path="/moderator/builders" element={<ProtectedRoute roles={["moderator"]}><ModeratorBuilders /></ProtectedRoute>} />
       <Route path="/moderator/browse" element={<ProtectedRoute roles={["moderator"]}><Opportunities embedded /></ProtectedRoute>} />
 
-      {/* Ecosystem Builder */}
-      <Route path="/builder" element={<ProtectedRoute roles={["ecosystem_builder"]}><FounderDashboard /></ProtectedRoute>} />
+      {/* Ecosystem Builder — MUST use BuilderDashboard, not FounderDashboard */}
+      <Route path="/builder" element={<ProtectedRoute roles={["ecosystem_builder"]}><BuilderDashboard /></ProtectedRoute>} />
       <Route path="/builder/apply" element={<ProtectedRoute roles={["ecosystem_builder"]}><BuilderApplication /></ProtectedRoute>} />
       <Route path="/builder/opportunities" element={<ProtectedRoute roles={["ecosystem_builder"]}><Opportunities embedded /></ProtectedRoute>} />
 

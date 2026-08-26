@@ -1,4 +1,4 @@
-import { NavLink, Link, useNavigate, useLocation } from "react-router-dom";
+import { NavLink, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   LayoutDashboard,
@@ -8,7 +8,6 @@ import {
   Briefcase,
   LogOut,
   User,
-  Shield,
   Inbox,
   Award,
   Menu,
@@ -17,71 +16,62 @@ import {
   Megaphone,
   Network,
   BarChart3,
-  ChevronRight,
   ExternalLink,
+  Shield,
 } from "lucide-react";
 import { useState } from "react";
 
 const NAV = {
   admin: [
-    { to: "/admin/analytics", label: "Analytics & Oversight", icon: BarChart3, end: true },
-    { to: "/admin", label: "Designation Cases", icon: Building2 },
-    { to: "/admin/builders", label: "Ecosystem Hubs", icon: Network },
-    { to: "/admin/users", label: "User Access Control", icon: Users },
-    { to: "/admin/opportunities", label: "National Opportunities", icon: Briefcase },
+    { to: "/admin/analytics", label: "Analytics", icon: BarChart3, end: true },
+    // end: true — only active on exact /admin (not /admin/builders etc.)
+    { to: "/admin", label: "Designation cases", icon: Building2, end: true },
+    { to: "/admin/builders", label: "Ecosystem builders", icon: Network },
+    { to: "/admin/users", label: "Users", icon: Users },
+    { to: "/admin/opportunities", label: "Opportunities", icon: Briefcase },
   ],
   reviewer: [
-    { to: "/reviewer", label: "Startup Reviews", icon: ClipboardList, end: true },
-    { to: "/reviewer/builders", label: "Builder Audits", icon: Building2 },
+    { to: "/reviewer", label: "Startup reviews", icon: ClipboardList, end: true },
+    { to: "/reviewer/builders", label: "Builder reviews", icon: Building2 },
     { to: "/reviewer/opportunities", label: "Opportunities", icon: Megaphone },
   ],
   moderator: [
-    { to: "/moderator", label: "Opportunity Posts", icon: Megaphone, end: true },
-    { to: "/moderator/startups", label: "Startup Registry", icon: Building2 },
-    { to: "/moderator/builders", label: "Builders Hub", icon: Network },
-    { to: "/moderator/browse", label: "Public Feed", icon: Briefcase },
+    { to: "/moderator", label: "Opportunity posts", icon: Megaphone, end: true },
+    { to: "/moderator/startups", label: "Startups", icon: Building2 },
+    { to: "/moderator/builders", label: "Builders", icon: Network },
+    { to: "/moderator/browse", label: "Public feed", icon: Briefcase },
   ],
   founder: [
-    { to: "/founder", label: "Venture Overview", icon: LayoutDashboard, end: true },
-    { to: "/founder/create", label: "Statutory Filing", icon: FileText },
-    { to: "/founder/data-room", label: "Secure Data Room", icon: Inbox },
-    { to: "/founder/certificate", label: "Designation Certificate", icon: Award },
-    { to: "/founder/opportunities", label: "Funding & Programs", icon: Megaphone },
+    { to: "/founder", label: "Overview", icon: LayoutDashboard, end: true },
+    { to: "/founder/create", label: "Application", icon: FileText },
+    { to: "/founder/data-room", label: "Data room", icon: Inbox },
+    { to: "/founder/certificate", label: "Certificate", icon: Award },
+    { to: "/founder/opportunities", label: "Opportunities", icon: Megaphone },
   ],
   investor: [
-    { to: "/investor", label: "Deal Pipeline", icon: LayoutDashboard, end: true },
-    { to: "/investor/directory", label: "Designated Startups", icon: Building2 },
-    { to: "/investor/opportunities", label: "Post Mandates", icon: Briefcase },
-    { to: "/investor/browse-opportunities", label: "All Opportunities", icon: Shield },
+    { to: "/investor", label: "Overview", icon: LayoutDashboard, end: true },
+    { to: "/investor/directory", label: "Designated startups", icon: Building2 },
+    { to: "/investor/builders", label: "Ecosystem builders", icon: Network },
+    { to: "/investor/opportunities", label: "Post opportunity", icon: Briefcase },
+    { to: "/investor/browse-opportunities", label: "All opportunities", icon: Shield },
   ],
   citizen: [
-    { to: "/citizen", label: "Innovation Hub", icon: LayoutDashboard, end: true },
-    { to: "/citizen/directory", label: "Verified Startups", icon: Building2 },
-    { to: "/citizen/builders", label: "Ecosystem Builders", icon: Network },
-    { to: "/citizen/opportunities", label: "Public Calls", icon: Briefcase },
+    { to: "/citizen", label: "Overview", icon: LayoutDashboard, end: true },
+    { to: "/citizen/directory", label: "Startups", icon: Building2 },
+    { to: "/citizen/builders", label: "Builders", icon: Network },
+    { to: "/citizen/opportunities", label: "Opportunities", icon: Briefcase },
   ],
   ecosystem_builder: [
-    { to: "/builder", label: "Hub Overview", icon: LayoutDashboard, end: true },
-    { to: "/builder/apply", label: "Accreditation Filing", icon: FileText },
-    { to: "/builder/opportunities", label: "Host Programs", icon: Megaphone },
+    { to: "/builder", label: "Overview", icon: LayoutDashboard, end: true },
+    { to: "/builder/apply", label: "Application", icon: FileText },
+    { to: "/builder/opportunities", label: "Opportunities", icon: Megaphone },
   ],
 };
 
-const ROLES_LIST = [
-  { id: "founder", label: "Founder", color: "bg-teal-500/10 text-teal-700 border-teal-200" },
-  { id: "investor", label: "Investor", color: "bg-blue-500/10 text-blue-700 border-blue-200" },
-  { id: "admin", label: "MinT Admin", color: "bg-indigo-500/10 text-indigo-700 border-indigo-200" },
-  { id: "reviewer", label: "Reviewer", color: "bg-amber-500/10 text-amber-700 border-amber-200" },
-  { id: "ecosystem_builder", label: "Builder Hub", color: "bg-purple-500/10 text-purple-700 border-purple-200" },
-  { id: "citizen", label: "Public Citizen", color: "bg-emerald-500/10 text-emerald-700 border-emerald-200" },
-];
-
 export default function AppShell({ title, subtitle, children, actions }) {
-  const { user, logout, switchRole } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const [open, setOpen] = useState(false);
-  const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
 
   const currentRole = user?.role || "founder";
   const items = NAV[currentRole] || NAV.founder;
@@ -91,227 +81,149 @@ export default function AppShell({ title, subtitle, children, actions }) {
     navigate("/login");
   };
 
-  const handleRoleChange = (newRole) => {
-    if (switchRole) {
-      switchRole(newRole);
-    } else {
-      const updatedUser = {
-        ...(user || { fullName: "Abebe Bikila", email: "user@mint.gov.et" }),
-        role: newRole,
-      };
-      localStorage.setItem("dih_user", JSON.stringify(updatedUser));
-      window.location.reload();
-    }
-    setShowRoleSwitcher(false);
-  };
-
-  // Larger readable nav links
   const linkClass = ({ isActive }) =>
-    `group flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+    `group flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-semibold transition-colors ${
       isActive
-        ? "bg-teal-600 text-white shadow-md shadow-teal-700/20 font-bold"
-        : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+        ? "bg-teal-700 text-white shadow-sm"
+        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
     }`;
 
   const SidebarContent = (
-    <div className="flex flex-col h-full bg-white border-r border-slate-200/80">
-      {/* Brand Header */}
-      <div className="px-5 py-5 border-b border-slate-200/80 bg-slate-50/50">
-        <Link to="/" className="flex items-center gap-3 group">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-teal-600 to-teal-800 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-teal-900/20 group-hover:scale-105 transition-transform">
+    <div className="flex flex-col h-full bg-white border-r border-slate-200">
+      <div className="px-5 py-5 border-b border-slate-200">
+        <Link to="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
+          <div className="w-11 h-11 rounded-xl bg-teal-700 text-white flex items-center justify-center font-bold text-sm shrink-0">
             MinT
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-extrabold text-slate-900 tracking-tight leading-tight">
-              Federal Democratic Republic
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-slate-900 leading-tight">
+              MinT Digital Portal
             </div>
-            <div className="text-xs font-bold text-teal-800 tracking-tight leading-tight mt-0.5">
-              Ministry of Innovation & Tech
-            </div>
-            <div className="text-xs text-slate-500 font-medium mt-0.5">
-              Proclamation No. 1396/2025
+            <div className="text-xs text-slate-500 mt-0.5">
+              Ministry of Innovation and Technology
             </div>
           </div>
         </Link>
       </div>
 
-      {/* Role Badge */}
-      <div className="px-5 py-3 bg-slate-100/60 border-b border-slate-200/60 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
-            Workspace
-          </span>
+      <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/80">
+        <div className="text-xs font-medium text-slate-500">Signed in as</div>
+        <div className="text-sm font-semibold text-slate-900 capitalize mt-0.5">
+          {(currentRole || "").replace(/_/g, " ")}
         </div>
-
-        <button
-          onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
-          className="text-xs font-bold text-teal-800 hover:underline flex items-center gap-0.5 bg-teal-50 px-2.5 py-1 rounded-md border border-teal-200"
-          title="Switch workspace role"
-        >
-          <span className="capitalize">{currentRole.replace("_", " ")}</span>
-          <ChevronRight className="w-3.5 h-3.5" />
-        </button>
       </div>
 
-      {showRoleSwitcher && (
-        <div className="p-3 bg-slate-50 border-b border-slate-200 space-y-1 text-sm">
-          <div className="text-xs font-bold uppercase text-slate-400 mb-1 px-1">
-            Switch Portal Perspective:
-          </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {ROLES_LIST.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => handleRoleChange(r.id)}
-                className={`px-2.5 py-2 rounded-lg text-left font-semibold text-xs border transition-all ${
-                  currentRole === r.id
-                    ? "bg-teal-600 text-white border-teal-600 font-bold"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                }`}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Navigation */}
-      <nav className="flex-1 px-3.5 py-4 space-y-1.5 overflow-y-auto">
-        <div className="text-xs font-bold uppercase tracking-wider text-slate-400 px-3 pb-1">
-          Main Navigation
-        </div>
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {items.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
-            end={item.end}
+            end={item.end === true}
             className={linkClass}
             onClick={() => setOpen(false)}
           >
-            <item.icon className="w-5 h-5 shrink-0 transition-transform group-hover:scale-110" />
+            <item.icon className="w-5 h-5 shrink-0" strokeWidth={2} />
             <span className="truncate">{item.label}</span>
           </NavLink>
         ))}
 
-        <div className="pt-4 mt-4 border-t border-slate-200/80">
-          <div className="text-xs font-bold uppercase tracking-wider text-slate-400 px-3 pb-1">
-            Public Registry
-          </div>
-          <NavLink
-            to="/directory"
-            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-            onClick={() => setOpen(false)}
-          >
-            <Building2 className="w-5 h-5 text-slate-400" />
-            <span>Designated Directory</span>
-          </NavLink>
-          <NavLink
-            to="/builders"
-            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-            onClick={() => setOpen(false)}
-          >
-            <Network className="w-5 h-5 text-slate-400" />
-            <span>Ecosystem Builders</span>
-          </NavLink>
-          <NavLink
-            to="/profile"
-            className={linkClass}
-            onClick={() => setOpen(false)}
-          >
-            <User className="w-5 h-5 shrink-0" />
-            <span>Account Profile</span>
+        <div className="pt-4 mt-3 border-t border-slate-100 space-y-1">
+          <NavLink to="/profile" className={linkClass} onClick={() => setOpen(false)}>
+            <User className="w-5 h-5 shrink-0" strokeWidth={2} />
+            <span>Profile</span>
           </NavLink>
         </div>
       </nav>
 
-      {/* User footer */}
-      <div className="p-3.5 border-t border-slate-200/80 bg-slate-50/50">
-        <div className="flex items-center gap-3 px-2 py-2 mb-2 rounded-xl bg-white border border-slate-200/70">
-          <div className="w-9 h-9 rounded-lg bg-teal-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
+      <div className="p-4 border-t border-slate-200 bg-slate-50/50">
+        <div className="flex items-center gap-3 px-2 py-2 mb-3 rounded-xl bg-white border border-slate-200">
+          <div className="w-10 h-10 rounded-lg bg-teal-700 text-white flex items-center justify-center font-semibold text-sm shrink-0">
             {user?.fullName ? user.fullName.charAt(0).toUpperCase() : "U"}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-bold text-slate-900 truncate">
-              {user?.fullName || "Abebe Bikila"}
+            <div className="text-sm font-semibold text-slate-900 truncate">
+              {user?.fullName || "User"}
             </div>
-            <div className="text-xs text-slate-500 truncate">
-              {user?.email || "user@mint.gov.et"}
-            </div>
+            <div className="text-xs text-slate-500 truncate">{user?.email || ""}</div>
           </div>
         </div>
-
         <button
+          type="button"
           onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-red-700 hover:bg-red-50 border border-transparent hover:border-red-100 transition-colors"
         >
           <LogOut className="w-4 h-4" />
-          <span>Sign out of Portal</span>
+          Sign out
         </button>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 flex text-base">
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:flex w-72 flex-col fixed inset-y-0 left-0 z-30 shadow-xs">
+    <div className="min-h-screen bg-slate-50 flex">
+      <aside className="hidden lg:flex w-72 flex-col fixed inset-y-0 left-0 z-30">
         {SidebarContent}
       </aside>
 
-      {/* Mobile drawer */}
       {open && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-slate-900/40"
             onClick={() => setOpen(false)}
+            aria-hidden
           />
-          <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white shadow-2xl z-10">
+          <div className="relative flex flex-col w-full max-w-xs bg-white shadow-2xl z-10">
+            <button
+              type="button"
+              className="absolute top-4 right-4 p-2 rounded-lg text-slate-500 hover:bg-slate-100 z-20"
+              onClick={() => setOpen(false)}
+              aria-label="Close menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
             {SidebarContent}
           </div>
         </div>
       )}
 
-      {/* Main content */}
       <div className="flex-1 lg:pl-72 min-w-0 flex flex-col">
-        <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
-          <div className="px-4 sm:px-6 lg:px-8 h-16 sm:h-[4.25rem] flex items-center justify-between gap-4">
+        <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-slate-200">
+          <div className="px-4 sm:px-6 lg:px-8 h-[4.25rem] flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
               <button
-                className="lg:hidden p-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600"
+                type="button"
+                className="lg:hidden p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700"
                 onClick={() => setOpen(true)}
+                aria-label="Open menu"
               >
-                {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                <Menu className="w-5 h-5" />
               </button>
-
               <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 truncate tracking-tight">
+                <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate tracking-tight">
                   {title}
                 </h1>
                 {subtitle && (
-                  <p className="text-sm text-slate-500 truncate hidden sm:block">
+                  <p className="text-sm text-slate-500 truncate hidden sm:block mt-0.5">
                     {subtitle}
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <Link
                 to="/"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-sm font-semibold text-slate-700 transition-colors"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700"
               >
-                <span>Public Portal</span>
+                Public site
                 <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
               </Link>
-
               {actions && <div className="flex items-center gap-2">{actions}</div>}
             </div>
           </div>
         </header>
 
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-7xl w-full mx-auto text-sm sm:text-base">
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-7xl w-full mx-auto">
           {children}
         </main>
       </div>
