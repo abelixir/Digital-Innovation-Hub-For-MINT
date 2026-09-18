@@ -1,52 +1,186 @@
-const express = require('express');
+const express = require("express");
 const {
+  sendConnectionMessage,
+  getConnectionMessages,
+  verifyTransfer,
   createStartup,
+  submitStartup,
   getMyStartup,
   updateMyStartup,
   getVerifiedStartups,
   getStartup,
   getStartupCase,
   getPendingStartups,
-  approveStartup,
-  rejectStartup,
+  submitReview,
+  requestClarification,
+  respondToClarification,
   suspendStartup,
   revokeStartup,
   requestRenewal,
-  approveRenewal,
   getAdminStats,
+  getConnectionReport,
+  exportConnectionReport,
+  exportPlatformReport,
   getPublicStats,
   getAdminStartups,
   deleteStartup,
   startReview,
-} = require('../controllers/startupController');
-const { protect, restrictTo } = require('../middleware/authMiddleware');
+  expressInterest,
+  getInvestorConnections,
+  getMyConnections,
+  updateConnectionStage,
+  updateConnectionDetails,
+  submitAnnualReport,
+  getAnnualReports,
+  reviewAnnualReport,
+  approveDataRoom,
+  approveTermSheet,
+  approveDealExecution,
+  generateConnectionDocument,
+} = require("../controllers/startupController");
+const { protect, restrictTo } = require("../middleware/authMiddleware");
+const upload = require("../middleware/uploadMiddleware");
 
 const router = express.Router();
 
-router.get('/', getVerifiedStartups);
-router.get('/public-stats', getPublicStats);
+// ====================== PUBLIC ======================
+router.get("/", getVerifiedStartups);
+router.get("/public-stats", getPublicStats);
 
+// ====================== AUTHENTICATED ======================
 router.use(protect);
 
-router.post('/', restrictTo('founder'), createStartup);
-router.get('/my', restrictTo('founder'), getMyStartup);
-router.put('/my', restrictTo('founder'), updateMyStartup);
-router.post('/my/renew', restrictTo('founder'), requestRenewal);
+// ── Investor routes (specific paths BEFORE /:id catch-all) ──
+router.get(
+  "/investor/connections",
+  restrictTo("investor"),
+  getInvestorConnections,
+);
+router.post("/:id/express-interest", restrictTo("investor"), expressInterest);
 
-router.get('/pending', restrictTo('admin', 'reviewer'), getPendingStartups);
-router.get('/stats', restrictTo('admin', 'reviewer', 'moderator'), getAdminStats);
-router.get('/admin', restrictTo('admin', 'reviewer', 'moderator'), getAdminStartups);
-router.get('/:id/case', restrictTo('admin', 'reviewer'), getStartupCase);
+// ── Connection lifecycle (BEFORE /:id catch-all) ──
+router.get("/my/connections", restrictTo("founder"), getMyConnections);
+router.patch("/connections/:connectionId/stage", updateConnectionStage);
+router.patch("/connections/:connectionId", updateConnectionDetails);
+router.patch(
+  "/connections/:connectionId/data-room",
+  restrictTo("founder"),
+  approveDataRoom,
+);
 
-router.patch('/:id/start-review', restrictTo('admin', 'reviewer'), startReview);
+router.patch(
+  "/connections/:connectionId/term-sheet",
+  restrictTo("founder"),
+  approveTermSheet,
+);
+router.patch(
+  "/connections/:connectionId/deal-execution",
+  restrictTo("founder"),
+  approveDealExecution,
+);
+router.post(
+  "/connections/:connectionId/generate-document",
+  generateConnectionDocument,
+);
+router.post(
+  "/connections/:connectionId/messages",
+  restrictTo("founder", "investor"),
+  sendConnectionMessage,
+);
+router.get(
+  "/connections/:connectionId/messages",
+  restrictTo("founder", "investor"),
+  getConnectionMessages,
+);
+router.post(
+  "/connections/:connectionId/verify-transfer",
+  restrictTo("founder", "investor"),
+  upload.single("evidence"),
+  verifyTransfer,
+);
+// Founder — profile management (with file upload support)
+router.post(
+  "/",
+  restrictTo("founder"),
+  upload.fields([
+    { name: "logo", maxCount: 1 },
+    { name: "affidavit", maxCount: 1 },
+  ]),
+  createStartup,
+);
+router.get("/my", restrictTo("founder"), getMyStartup);
+router.put(
+  "/my",
+  restrictTo("founder"),
+  upload.fields([
+    { name: "logo", maxCount: 1 },
+    { name: "affidavit", maxCount: 1 },
+  ]),
+  updateMyStartup,
+);
+router.post("/my/submit", restrictTo("founder"), submitStartup);
+router.post("/my/renew", restrictTo("founder"), requestRenewal);
+router.post(
+  "/my/clarification-response",
+  restrictTo("founder"),
+  respondToClarification,
+);
+router.post("/my/annual-report", restrictTo("founder"), submitAnnualReport);
 
-router.patch('/:id/approve', restrictTo('admin'), approveStartup);
-router.patch('/:id/reject', restrictTo('admin'), rejectStartup);
-router.patch('/:id/suspend', restrictTo('admin'), suspendStartup);
-router.patch('/:id/revoke', restrictTo('admin'), revokeStartup);
-router.patch('/:id/approve-renewal', restrictTo('admin'), approveRenewal);
-router.delete('/:id', restrictTo('admin'), deleteStartup);
+// Reviewer / Admin — annual report compliance review
+router.get(
+  "/annual-reports",
+  restrictTo("admin", "reviewer"),
+  getAnnualReports,
+);
+router.patch(
+  "/:id/annual-reports/:reportId",
+  restrictTo("admin", "reviewer"),
+  reviewAnnualReport,
+);
 
-router.get('/:id', getStartup);
+// Admin / Reviewer / Moderator — lists & stats
+router.get("/pending", restrictTo("admin", "reviewer"), getPendingStartups);
+router.get(
+  "/stats",
+  restrictTo("admin", "reviewer", "moderator"),
+  getAdminStats,
+);
+router.get(
+  "/admin/connection-report",
+  restrictTo("admin", "reviewer", "moderator"),
+  getConnectionReport,
+);
+router.get(
+  "/admin/export/connection-report",
+  restrictTo("admin", "reviewer", "moderator"),
+  exportConnectionReport,
+);
+router.get(
+  "/admin/export/platform-report",
+  restrictTo("admin"),
+  exportPlatformReport,
+);
+router.get(
+  "/admin",
+  restrictTo("admin", "reviewer", "moderator"),
+  getAdminStartups,
+);
+
+// Admin / Reviewer — case review (specific routes BEFORE /:id)
+router.get("/:id/case", restrictTo("admin", "reviewer"), getStartupCase);
+router.patch("/:id/start-review", restrictTo("admin", "reviewer"), startReview);
+router.patch(
+  "/:id/request-clarification",
+  restrictTo("admin", "reviewer"),
+  requestClarification,
+);
+router.patch("/:id/review", restrictTo("admin", "reviewer"), submitReview);
+router.patch("/:id/suspend", restrictTo("admin"), suspendStartup);
+router.patch("/:id/revoke", restrictTo("admin"), revokeStartup);
+router.delete("/:id", restrictTo("admin"), deleteStartup);
+
+// Generic — must be LAST among /:id routes
+router.get("/:id", getStartup);
 
 module.exports = router;

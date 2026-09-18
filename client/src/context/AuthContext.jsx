@@ -8,7 +8,7 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Restore session from storage; optionally validate later via /auth/me if available
+  // Restore session from storage
   useEffect(() => {
     const savedUser = localStorage.getItem("dih_user");
     const savedToken = localStorage.getItem("dih_token");
@@ -39,10 +39,18 @@ export function AuthProvider({ children }) {
     return data.user;
   };
 
-  const register = async (fullName, email, password, role) => {
+  const register = async (fullName, email, password, role, extraData = {}) => {
     const data = await apiRequest("/auth/register", {
       method: "POST",
-      body: { fullName, email, password, role },
+      body: { fullName, email, password, role, ...extraData },
+    });
+    return data;
+  };
+
+  const verifyEmail = async (email, code) => {
+    const data = await apiRequest("/auth/verify-email", {
+      method: "POST",
+      body: { email, code },
     });
 
     setUser(data.user);
@@ -51,6 +59,48 @@ export function AuthProvider({ children }) {
     localStorage.setItem("dih_token", data.token);
 
     return data.user;
+  };
+
+  const resendVerification = async (email) => {
+    return await apiRequest("/auth/resend-verification", {
+      method: "POST",
+      body: { email },
+    });
+  };
+
+  const forgotPassword = async (email) => {
+    return await apiRequest("/auth/forgot-password", {
+      method: "POST",
+      body: { email },
+    });
+  };
+
+  const resetPassword = async (email, code, newPassword) => {
+    return await apiRequest("/auth/reset-password", {
+      method: "POST",
+      body: { email, code, newPassword },
+    });
+  };
+
+  const verifyResetCode = async (email, code) => {
+    return await apiRequest("/auth/verify-reset-code", {
+      method: "POST",
+      body: { email, code },
+    });
+  };
+
+  const submitVerification = async (formData) => {
+    const data = await apiRequest("/auth/verification", {
+      method: "POST",
+      body: formData,
+    });
+    setUser(data.user);
+    localStorage.setItem("dih_user", JSON.stringify(data.user));
+    return data.user;
+  };
+
+  const getVerificationStatus = async () => {
+    return await apiRequest("/auth/verification");
   };
 
   const updateProfile = async (profileData) => {
@@ -80,6 +130,13 @@ export function AuthProvider({ children }) {
         loading,
         login,
         register,
+        verifyEmail,
+        resendVerification,
+        forgotPassword,
+        resetPassword,
+        verifyResetCode,
+        submitVerification,
+        getVerificationStatus,
         updateProfile,
         logout,
         isAuthenticated: !!user,

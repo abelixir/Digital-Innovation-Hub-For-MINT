@@ -1,5 +1,6 @@
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { apiRequest } from "../utils/api";
 import {
   LayoutDashboard,
   Building2,
@@ -19,7 +20,7 @@ import {
   ExternalLink,
   Shield,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const NAV = {
   admin: [
@@ -29,14 +30,26 @@ const NAV = {
     { to: "/admin/builders", label: "Ecosystem builders", icon: Network },
     { to: "/admin/users", label: "Users", icon: Users },
     { to: "/admin/opportunities", label: "Opportunities", icon: Briefcase },
+    // { to: "/admin/verifications", label: "Verifications", icon: Shield },
   ],
   reviewer: [
-    { to: "/reviewer", label: "Startup reviews", icon: ClipboardList, end: true },
+    {
+      to: "/reviewer",
+      label: "Startup reviews",
+      icon: ClipboardList,
+      end: true,
+    },
     { to: "/reviewer/builders", label: "Builder reviews", icon: Building2 },
     { to: "/reviewer/opportunities", label: "Opportunities", icon: Megaphone },
+    { to: "/reviewer/verifications", label: "Verifications", icon: Shield },
   ],
   moderator: [
-    { to: "/moderator", label: "Opportunity posts", icon: Megaphone, end: true },
+    {
+      to: "/moderator",
+      label: "Opportunity posts",
+      icon: Megaphone,
+      end: true,
+    },
     { to: "/moderator/startups", label: "Startups", icon: Building2 },
     { to: "/moderator/builders", label: "Builders", icon: Network },
     { to: "/moderator/browse", label: "Public feed", icon: Briefcase },
@@ -50,10 +63,22 @@ const NAV = {
   ],
   investor: [
     { to: "/investor", label: "Overview", icon: LayoutDashboard, end: true },
-    { to: "/investor/directory", label: "Designated startups", icon: Building2 },
+    {
+      to: "/investor/directory",
+      label: "Designated startups",
+      icon: Building2,
+    },
     { to: "/investor/builders", label: "Ecosystem builders", icon: Network },
-    { to: "/investor/opportunities", label: "Post opportunity", icon: Briefcase },
-    { to: "/investor/browse-opportunities", label: "All opportunities", icon: Shield },
+    {
+      to: "/investor/opportunities",
+      label: "Post opportunity",
+      icon: Briefcase,
+    },
+    {
+      to: "/investor/browse-opportunities",
+      label: "All opportunities",
+      icon: Shield,
+    },
   ],
   citizen: [
     { to: "/citizen", label: "Overview", icon: LayoutDashboard, end: true },
@@ -68,13 +93,53 @@ const NAV = {
   ],
 };
 
-export default function AppShell({ title, subtitle, children, actions }) {
+export default function AppShell({
+  title,
+  subtitle,
+  children,
+  actions,
+  contentClassName = "",
+}) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [reviewerCounts, setReviewerCounts] = useState({
+    builders: 0,
+    verifications: 0,
+  });
 
   const currentRole = user?.role || "founder";
   const items = NAV[currentRole] || NAV.founder;
+
+  useEffect(() => {
+    if (currentRole !== "reviewer") return undefined;
+
+    let active = true;
+    const loadReviewerCounts = async () => {
+      try {
+        const [builderRes, verificationRes] = await Promise.all([
+          apiRequest("/ecosystem-builders/admin?status=pending"),
+          apiRequest("/auth/admin/verifications"),
+        ]);
+        if (active) {
+          setReviewerCounts({
+            builders: builderRes.count ?? builderRes.data?.length ?? 0,
+            verifications:
+              verificationRes.count ?? verificationRes.data?.length ?? 0,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load reviewer notification counts", error);
+      }
+    };
+
+    loadReviewerCounts();
+    const interval = setInterval(loadReviewerCounts, 30_000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [currentRole]);
 
   const handleLogout = () => {
     logout();
@@ -82,7 +147,7 @@ export default function AppShell({ title, subtitle, children, actions }) {
   };
 
   const linkClass = ({ isActive }) =>
-    `group flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-semibold transition-colors ${
+    `group flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl text-sm font-semibold transition-colors ${
       isActive
         ? "bg-teal-700 text-white shadow-sm"
         : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -91,9 +156,17 @@ export default function AppShell({ title, subtitle, children, actions }) {
   const SidebarContent = (
     <div className="flex flex-col h-full bg-white border-r border-slate-200">
       <div className="px-5 py-5 border-b border-slate-200">
-        <Link to="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
-          <div className="w-11 h-11 rounded-xl bg-teal-700 text-white flex items-center justify-center font-bold text-sm shrink-0">
-            MinT
+        <Link
+          to="/"
+          className="flex items-center gap-3"
+          onClick={() => setOpen(false)}
+        >
+          <div className="w-16 h-14 rounded-xl overflow-hidden flex items-center justify-center shrink-0">
+            <img
+              src="/logo.png"
+              alt="MinT Digital Portal logo"
+              className="w-full h-full object-contain"
+            />
           </div>
           <div className="min-w-0">
             <div className="text-sm font-bold text-slate-900 leading-tight">
@@ -122,15 +195,42 @@ export default function AppShell({ title, subtitle, children, actions }) {
             className={linkClass}
             onClick={() => setOpen(false)}
           >
-            <item.icon className="w-5 h-5 shrink-0" strokeWidth={2} />
-            <span className="truncate">{item.label}</span>
+            <span className="flex min-w-0 items-center gap-3">
+              <item.icon className="w-5 h-5 shrink-0" strokeWidth={2} />
+              <span className="truncate">{item.label}</span>
+            </span>
+            {currentRole === "reviewer" && (
+              <span
+                className={`flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
+                  item.to === "/reviewer/builders"
+                    ? reviewerCounts.builders > 0
+                      ? "bg-amber-500 text-white"
+                      : "bg-slate-100 text-slate-400"
+                    : item.to === "/reviewer/verifications"
+                      ? reviewerCounts.verifications > 0
+                        ? "bg-rose-500 text-white"
+                        : "bg-slate-100 text-slate-400"
+                      : "hidden"
+                }`}
+              >
+                {item.to === "/reviewer/builders"
+                  ? reviewerCounts.builders
+                  : reviewerCounts.verifications}
+              </span>
+            )}
           </NavLink>
         ))}
 
         <div className="pt-4 mt-3 border-t border-slate-100 space-y-1">
-          <NavLink to="/profile" className={linkClass} onClick={() => setOpen(false)}>
-            <User className="w-5 h-5 shrink-0" strokeWidth={2} />
-            <span>Profile</span>
+          <NavLink
+            to="/profile"
+            className={linkClass}
+            onClick={() => setOpen(false)}
+          >
+            <span className="flex min-w-0 items-center gap-3">
+              <User className="w-5 h-5 shrink-0" strokeWidth={2} />
+              <span>Profile</span>
+            </span>
           </NavLink>
         </div>
       </nav>
@@ -144,7 +244,9 @@ export default function AppShell({ title, subtitle, children, actions }) {
             <div className="text-sm font-semibold text-slate-900 truncate">
               {user?.fullName || "User"}
             </div>
-            <div className="text-xs text-slate-500 truncate">{user?.email || ""}</div>
+            <div className="text-xs text-slate-500 truncate">
+              {user?.email || ""}
+            </div>
           </div>
         </div>
         <button
@@ -199,7 +301,7 @@ export default function AppShell({ title, subtitle, children, actions }) {
                 <Menu className="w-5 h-5" />
               </button>
               <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate tracking-tight">
+                <h1 className="text-base sm:text-lg font-bold text-slate-900 truncate tracking-tight">
                   {title}
                 </h1>
                 {subtitle && (
@@ -218,12 +320,16 @@ export default function AppShell({ title, subtitle, children, actions }) {
                 Public site
                 <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
               </Link>
-              {actions && <div className="flex items-center gap-2">{actions}</div>}
+              {actions && (
+                <div className="flex items-center gap-2">{actions}</div>
+              )}
             </div>
           </div>
         </header>
 
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-7xl w-full mx-auto">
+        <main
+          className={`flex-1 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-7xl w-full mx-auto ${contentClassName}`}
+        >
           {children}
         </main>
       </div>
